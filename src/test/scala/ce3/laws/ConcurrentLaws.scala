@@ -34,12 +34,6 @@ trait ConcurrentLaws[F[_], E] extends MonadErrorLaws[F, E] {
     F.race(fa, fb) <-> identity
   }
 
-  def raceLeftErrorYields[A](fa: F[A], e: E) =
-    F.race(F.raiseError[Unit](e), fa) <-> fa.map(_.asRight[Unit])
-
-  def raceRightErrorYields[A](fa: F[A], e: E) =
-    F.race(fa, F.raiseError[Unit](e)) <-> fa.map(_.asLeft[Unit])
-
   def raceLeftCanceledYields[A](fa: F[A]) =
     F.race(F.canceled(()), fa) <-> fa.map(_.asRight[Unit])
 
@@ -53,10 +47,10 @@ trait ConcurrentLaws[F[_], E] extends MonadErrorLaws[F, E] {
     F.race(F.pure(a), F.cede) <-> F.pure(Left(a))
 
   def fiberPureIsCompletedPure[A](a: A) =
-    F.start(F.pure(a)).flatMap(f => f.cancel >> f.join) <-> F.pure(Outcome.Completed(F.pure(a)))
+    F.start(F.pure(a)).flatMap(_.join) <-> F.pure(Outcome.Completed(F.pure(a)))
 
   def fiberErrorIsErrored(e: E) =
-    F.start(F.raiseError[Unit](e)).flatMap(f => f.cancel >> f.join) <-> F.pure(Outcome.Errored(e))
+    F.start(F.raiseError[Unit](e)).flatMap(_.join) <-> F.pure(Outcome.Errored(e))
 
   def fiberCancelationIsCanceled =
     F.start(F.never[Unit]).flatMap(f => f.cancel >> f.join) <-> F.pure(Outcome.Canceled)
@@ -67,7 +61,7 @@ trait ConcurrentLaws[F[_], E] extends MonadErrorLaws[F, E] {
   def fiberJoinOfNeverIsNever =
     F.start(F.never[Unit]).flatMap(_.join) <-> F.never[Outcome[F, E, Unit]]
 
-  def startOfNeverIsUnit =
+  def fiberStartOfNeverIsUnit =
     F.start(F.never[Unit]).void <-> F.unit
 
   def neverDistributesOverFlatMapLeft[A](fa: F[A]) =

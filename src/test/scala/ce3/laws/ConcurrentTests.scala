@@ -64,7 +64,10 @@ trait ConcurrentTests[F[_], E] extends MonadErrorTests[F, E] {
       faPP: F[A] => Pretty,
       fuPP: F[Unit] => Pretty,
       aFUPP: (A => F[Unit]) => Pretty,
-      ePP: E => Pretty)
+      ePP: E => Pretty,
+      foaPP: F[Outcome[F, E, A]] => Pretty,
+      feauPP: F[Either[A, Unit]] => Pretty,
+      feuaPP: F[Either[Unit, A]] => Pretty)
       : RuleSet = {
 
     new RuleSet {
@@ -75,8 +78,6 @@ trait ConcurrentTests[F[_], E] extends MonadErrorTests[F, E] {
       val props = Seq(
         "race is racePair identity" -> forAll(laws.raceIsRacePairCancelIdentity[A, B] _),
 
-        "race left error yields" -> forAll(laws.raceLeftErrorYields[A] _),
-        "race right error yields" -> forAll(laws.raceRightErrorYields[A] _),
         "race left canceled yields" -> forAll(laws.raceLeftCanceledYields[A] _),
         "race right canceled yields" -> forAll(laws.raceRightCanceledYields[A] _),
         "race left cede yields" -> forAll(laws.raceLeftCedeYields[A] _),
@@ -87,8 +88,8 @@ trait ConcurrentTests[F[_], E] extends MonadErrorTests[F, E] {
         "fiber cancelation is canceled" -> laws.fiberCancelationIsCanceled,
         "fiber of canceled is canceled" -> laws.fiberOfCanceledIsCanceled,
         "fiber join of never is never" -> laws.fiberJoinOfNeverIsNever,
+        "fiber start of never is unit" -> laws.fiberStartOfNeverIsUnit,
 
-        "start of never is unit" -> laws.startOfNeverIsUnit,
         "never left-distributes over flatMap" -> forAll(laws.neverDistributesOverFlatMapLeft[A] _),
 
         "uncancelable poll is identity" -> forAll(laws.uncancelablePollIsIdentity[A] _),

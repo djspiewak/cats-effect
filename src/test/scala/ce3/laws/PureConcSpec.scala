@@ -38,9 +38,17 @@ import org.typelevel.discipline.specs2.mutable.Discipline
 class PureConcSpec extends Specification with Discipline with ScalaCheck {
   import Generators._
 
-  checkAll(
+  /*checkAll(
     "PureConc",
-    ConcurrentBracketTests[PureConc[Int, ?], Int].concurrentBracket[Int, Int, Int])
+    ConcurrentBracketTests[PureConc[Int, ?], Int].concurrentBracket[Int, Int, Int])*/
+
+  "pure concurrent" should {
+    val F = Concurrent[PureConc[Int, ?], Int]
+
+    "race canceled against error to produce the error" in {
+      run(F.race(F.canceled(()), F.raiseError[Unit](42))) mustEqual Outcome.Errored(42)
+    }
+  }
 
   implicit def arbPureConc[E: Arbitrary: Cogen, A: Arbitrary: Cogen]: Arbitrary[PureConc[E, A]] =
     Arbitrary(genPureConc[E, A](0))

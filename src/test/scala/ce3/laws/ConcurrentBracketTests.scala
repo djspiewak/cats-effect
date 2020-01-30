@@ -62,9 +62,13 @@ trait ConcurrentBracketTests[F[_], E] extends ConcurrentTests[F, E] with Bracket
       EqFInt: Eq[F[Int]],
       iso: Isomorphisms[F],
       faPP: F[A] => Pretty,
+      fbPP: F[B] => Pretty,
       fuPP: F[Unit] => Pretty,
       aFUPP: (A => F[Unit]) => Pretty,
-      ePP: E => Pretty)
+      ePP: E => Pretty,
+      foaPP: F[Outcome[F, E, A]] => Pretty,
+      feauPP: F[Either[A, Unit]] => Pretty,
+      feuaPP: F[Either[Unit, A]] => Pretty)
       : RuleSet = {
 
     new RuleSet {

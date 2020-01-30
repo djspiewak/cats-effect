@@ -27,14 +27,14 @@ object Generators {
   private[this] def F[E] = ConcurrentBracket[PureConc[E, ?], E]
 
   def genPureConc[E: Arbitrary: Cogen, A: Arbitrary: Cogen](depth: Int): Gen[PureConc[E, A]] = {
-    if (depth > 10) {
+    // if (depth > 10) {
       Gen.frequency(
         1 -> genPure[E, A],
-        1 -> genRaiseError[E, A],
+        1 -> genRaiseError[E, A]/*,
         1 -> genCanceled[E, A],
         1 -> genCede[E].flatMap(pc => arbitrary[A].map(pc.as(_))),
-        1 -> Gen.delay(genNever))
-    } else {
+        1 -> Gen.delay(genNever)*/)
+    /*} else {
       Gen.frequency(
         1 -> genPure[E, A],
         1 -> genRaiseError[E, A],
@@ -48,7 +48,7 @@ object Generators {
         1 -> Gen.delay(genStart[E, A](depth)),
         1 -> Gen.delay(genJoin[E, A](depth)),
         1 -> Gen.delay(genFlatMap[E, A](depth)))
-    }
+    }*/
   }
 
   def genPure[E, A: Arbitrary]: Gen[PureConc[E, A]] =
