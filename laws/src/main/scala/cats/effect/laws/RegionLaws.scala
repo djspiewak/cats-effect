@@ -20,7 +20,7 @@ package laws
 import cats.implicits._
 import cats.laws.MonadErrorLaws
 
-trait RegionLaws[R[_[_], _], F[_], E] extends MonadErrorLaws[R[F, ?], E] {
+trait RegionLaws[R[_[_], _], F[_], E] extends MonadErrorLaws[R[F, *], E] {
 
   implicit val F: Region[R, F, E]
 
@@ -57,5 +57,5 @@ object RegionLaws {
       F0: Region[R, F, E] { type Case[A] = Case0[A] },
       B0: Bracket[F, E] { type Case[A] = Case0[A] })    // this is legit-annoying
       : RegionLaws[R, F, E] =
-    new RegionLaws[R, F, E] { val F = F0; val B = B0 }
+    new RegionLaws[R, F, E] { val F: F0.type = F0; val B: B0.type = B0 }
 }

@@ -23,7 +23,7 @@ import cats.laws.discipline.SemigroupalTests.Isomorphisms
 
 import org.scalacheck._, Prop.forAll
 
-trait RegionTests[R[_[_], _], F[_], E] extends MonadErrorTests[R[F, ?], E] {
+trait RegionTests[R[_[_], _], F[_], E] extends MonadErrorTests[R[F, *], E] {
 
   val laws: RegionLaws[R, F, E]
 
@@ -54,7 +54,7 @@ trait RegionTests[R[_[_], _], F[_], E] extends MonadErrorTests[R[F, ?], E] {
       EqRFABC: Eq[R[F, (A, B, C)]],
       EqRFInt: Eq[R[F, Int]],
       EqRFUnit: Eq[R[F, Unit]],
-      iso: Isomorphisms[R[F, ?]])
+      iso: Isomorphisms[R[F, *]])
       : RuleSet = {
 
     new RuleSet {

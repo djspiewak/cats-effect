@@ -44,5 +44,5 @@ class PureConcSpec extends Specification with Discipline with ScalaCheck {
 
   checkAll(
     "PureConc",
-    ConcurrentBracketTests[PureConc[Int, ?], Int].concurrentBracket[Int, Int, Int])
+    ConcurrentBracketTests[PureConc[Int, *], Int].concurrentBracket[Int, Int, Int])
 }
