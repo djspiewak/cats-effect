@@ -16,7 +16,9 @@
 
 package cats.effect
 
-import cats.{ApplicativeError, MonadError}
+import cats.{ApplicativeError, MonadError, Traverse}
+import cats.data.OptionT
+import cats.implicits._
 
 // represents the type Bracket | Region
 sealed trait Safe[F[_], E] extends MonadError[F, E] {
@@ -51,6 +53,92 @@ object Bracket {
 
   def apply[F[_], E](implicit F: Bracket[F, E]): F.type = F
   def apply[F[_]](implicit F: Bracket[F, _], d: DummyImplicit): F.type = F
+
+  implicit def bracketForEither[E]: Bracket.Aux2[Either[E, *], E, Either] =
+    new Bracket[Either[E, *], E] {
+      private[this] val delegate = catsStdInstancesForEither[E]
+
+      type Case[A] = Either[E, A]
+
+      def CaseInstance = this
+
+      // export delegate.{pure, handleErrorWith, raiseError, flatMap, tailRecM}
+
+      def pure[A](x: A): Either[E, A] =
+        delegate.pure(x)
+
+      def handleErrorWith[A](fa: Either[E, A])(f: E => Either[E, A]): Either[E, A] =
+        delegate.handleErrorWith(fa)(f)
+
+      def raiseError[A](e: E): Either[E, A] =
+        delegate.raiseError(e)
+
+      def bracketCase[A, B](
+          acquire: Either[E, A])(
+          use: A => Either[E, B])(
+          release: (A, Either[E, B]) => Either[E, Unit])
+          : Either[E, B] =
+        acquire flatMap { a =>
+          val result: Either[E, B] = use(a)
+          productR(attempt(release(a, result)))(result)
+        }
+
+      def flatMap[A, B](fa: Either[E, A])(f: A => Either[E, B]): Either[E, B] =
+        delegate.flatMap(fa)(f)
+
+      def tailRecM[A, B](a: A)(f: A => Either[E, Either[A, B]]): Either[E, B] =
+        delegate.tailRecM(a)(f)
+    }
+
+  implicit def bracketForOptionT[F[_], Case0[_]: Traverse, E](
+      implicit F: Bracket.Aux[F, E, Case0])
+      : Bracket.Aux[OptionT[F, *], E, Case0] =
+    new Bracket[OptionT[F, *], E] {
+
+      private[this] val delegate = OptionT.catsDataMonadErrorForOptionT[F, E]
+
+      type Case[A] = Case0[A]
+
+      def CaseInstance = F.CaseInstance
+
+      def pure[A](x: A): OptionT[F, A] =
+        delegate.pure(x)
+
+      def handleErrorWith[A](
+          fa: OptionT[F, A])(
+          f: E => OptionT[F, A])
+          : OptionT[F, A] =
+        delegate.handleErrorWith(fa)(f)
+
+      def raiseError[A](e: E): OptionT[F, A] =
+        delegate.raiseError(e)
+
+      def bracketCase[A, B](
+          acquire: OptionT[F, A])(
+          use: A => OptionT[F, B])(
+          release: (A, Case[B]) => OptionT[F, Unit])
+          : OptionT[F, B] =
+        OptionT {
+          F.bracketCase(
+            acquire.value)(
+            (optA: Option[A]) => optA.flatTraverse(a => use(a).value))(
+            { (optA: Option[A], resultOpt: Case[Option[B]]) =>
+              val intermed: Option[F[Option[Unit]]] = optA flatMap { a =>
+                resultOpt.sequence map { result =>
+                  release(a, result).value
+                }
+              }
+
+              intermed.sequence.void
+            })
+        }
+
+      def flatMap[A, B](fa: OptionT[F, A])(f: A => OptionT[F, B]): OptionT[F, B] =
+        delegate.flatMap(fa)(f)
+
+      def tailRecM[A, B](a: A)(f: A => OptionT[F, Either[A, B]]): OptionT[F, B] =
+        delegate.tailRecM(a)(f)
+    }
 }
 
 trait Region[R[_[_], _], F[_], E] extends Safe[R[F, *], E] {
