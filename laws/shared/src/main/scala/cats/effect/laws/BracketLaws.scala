@@ -45,6 +45,14 @@ trait BracketLaws[F[_], E] extends MonadErrorLaws[F, E] {
 
   def onCaseDefinedByBracketCase[A](fa: F[A], pf: PartialFunction[F.Case[A], F[Unit]]) =
     F.onCase(fa)(pf) <-> F.bracketCase(F.unit)(_ => fa)((_, c) => pf.lift(c).getOrElse(F.unit))
+
+  def onCaseConsistentFlatTap[A](a: A, f: F.Case[A] => F[Unit]) =
+    F.onCase(F.pure(a))(PartialFunction.fromFunction(f)) <->
+      F.flatTap(F.pure(a))(a => F.attempt(f(CaseInstance.pure(a))))
+
+  def onCaseConsistentOnError[A](e: E, pf: PartialFunction[F.Case[A], F[Unit]]) =
+    F.onCase(F.raiseError[A](e))(pf) <->
+      F.onError(F.raiseError[A](e))(PartialFunction.fromFunction(CaseInstance.raiseError[A](_)).andThen(pf).andThen(fu => F.void(F.attempt(fu))))
 }
 
 object BracketLaws {

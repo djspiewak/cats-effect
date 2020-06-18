@@ -76,7 +76,9 @@ trait BracketTests[F[_], E] extends MonadErrorTests[F, E] {
         "bracket acquire raiseError identity" -> forAll(laws.bracketAcquireErrorIdentity[A, B] _),
         "bracket release raiseError ignore" -> forAll(laws.bracketReleaseErrorIgnore _),
         "bracket body identity" -> forAll(laws.bracketBodyIdentity[A] _),
-        "onCase defined by bracketCase" -> forAll(laws.onCaseDefinedByBracketCase[A] _))
+        "onCase defined by bracketCase" -> forAll(laws.onCaseDefinedByBracketCase[A] _),
+        "onCase consistent flatTap" -> forAll(laws.onCaseConsistentFlatTap[A] _),
+        "onCase consistent onError" -> forAll(laws.onCaseConsistentOnError[A] _))
     }
   }
 }
