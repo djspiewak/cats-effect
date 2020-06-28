@@ -30,24 +30,14 @@ sealed trait Safe[F[_], E] extends MonadError[F, E] {
 
 trait Bracket[F[_], E] extends Safe[F, E] {
 
-  def bracketCase[A, B](
-      acquire: F[A])(
-      use: A => F[B])(
-      release: (A, Case[B]) => F[Unit])
-      : F[B]
-
-  def bracket[A, B](
-      acquire: F[A])(
-      use: A => F[B])(
-      release: A => F[Unit])
-      : F[B] =
-    bracketCase(acquire)(use)((a, _) => release(a))
-
   def handleCaseWith[A](fa: F[A])(
       a: A => F[A],
       e: E => F[A],
       c: Case[A] => F[Unit])
       : F[A]
+
+  def handleErrorWith[A](fa: F[A])(f: E => F[A]): F[A] =
+    handleCaseWith(fa)(a = pure(_), e = f, c = _ => unit)
 
   def onCase[A](fa: F[A])(pf: PartialFunction[Case[A], F[Unit]]): F[A] =
     handleCaseWith(fa)(
@@ -82,21 +72,18 @@ object Bracket {
       def pure[A](x: A): Either[E, A] =
         delegate.pure(x)
 
-      def handleErrorWith[A](fa: Either[E, A])(f: E => Either[E, A]): Either[E, A] =
-        delegate.handleErrorWith(fa)(f)
+      def handleCaseWith[A](fa: Either[E, A])(
+          a: A => Either[E, A],
+          e: E => Either[E, A],
+          c: Case[A] => Either[E, Unit])
+          : Either[E, A] =
+        fa match {
+          case Left(err) => e(err)
+          case Right(value) => a(value)
+        }
 
       def raiseError[A](e: E): Either[E, A] =
         delegate.raiseError(e)
-
-      def bracketCase[A, B](
-          acquire: Either[E, A])(
-          use: A => Either[E, B])(
-          release: (A, Either[E, B]) => Either[E, Unit])
-          : Either[E, B] =
-        acquire flatMap { a =>
-          val result: Either[E, B] = use(a)
-          productR(attempt(release(a, result)))(result)
-        }
 
       def flatMap[A, B](fa: Either[E, A])(f: A => Either[E, B]): Either[E, B] =
         delegate.flatMap(fa)(f)
@@ -137,16 +124,25 @@ object Bracket {
       def pure[A](x: A): OptionT[F, A] =
         delegate.pure(x)
 
-      def handleErrorWith[A](
-          fa: OptionT[F, A])(
-          f: E => OptionT[F, A])
-          : OptionT[F, A] =
-        delegate.handleErrorWith(fa)(f)
-
       def raiseError[A](e: E): OptionT[F, A] =
         delegate.raiseError(e)
 
-      def bracketCase[A, B](
+      def handleCaseWith[A](fa: OptionT[F, A])(
+          a: A => OptionT[F, A],
+          e: E => OptionT[F, A],
+          c: Case[A] => OptionT[F, Unit])
+          : OptionT[F, A] =
+        OptionT {
+          F.handleCaseWith[Option[A]](fa.value)(
+            a = _.flatTraverse(a.andThen(_.value)),
+            e = e(_).value,
+
+            c = { (cs: F.Case[Option[A]]) =>
+              c(OptionT(cs)).value.void
+            })
+        }
+
+      /*def bracketCase[A, B](
           acquire: OptionT[F, A])(
           use: A => OptionT[F, B])(
           release: (A, Case[B]) => OptionT[F, Unit])
@@ -162,7 +158,7 @@ object Bracket {
 
               resultsF.void
             })
-        }
+        }*/
 
       def flatMap[A, B](fa: OptionT[F, A])(f: A => OptionT[F, B]): OptionT[F, B] =
         delegate.flatMap(fa)(f)
