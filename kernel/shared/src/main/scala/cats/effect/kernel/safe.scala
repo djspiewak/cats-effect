@@ -50,6 +50,12 @@ trait Bracket[F[_], E] extends Safe[F, E] {
       },
 
       c = c => pf.lift(c).getOrElse(unit))
+
+  def guarantee[A](fa: F[A])(finalizer: F[Unit]): F[A] =
+    guaranteeCase(fa)(_ => finalizer)
+
+  def guaranteeCase[A](fa: F[A])(finalizer: Case[A] => F[Unit]): F[A] =
+    onCase(fa)({ case c => finalizer(c) })
 }
 
 object Bracket {

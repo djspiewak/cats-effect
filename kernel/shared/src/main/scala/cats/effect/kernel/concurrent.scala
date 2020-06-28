@@ -25,6 +25,7 @@ trait Fiber[F[_], E, A] {
 }
 
 trait Concurrent[F[_], E] extends MonadError[F, E] { self: Safe[F, E] =>
+
   type Case[A] = Outcome[F, E, A]
 
   final def CaseInstance: ApplicativeError[Outcome[F, E, *], E] =
@@ -75,6 +76,25 @@ trait Concurrent[F[_], E] extends MonadError[F, E] { self: Safe[F, E] =>
 }
 
 object Concurrent {
+
   def apply[F[_], E](implicit F: Concurrent[F, E]): F.type = F
   def apply[F[_]](implicit F: Concurrent[F, _], d: DummyImplicit): F.type = F
+
+  final implicit class ConcurrentBracketSyntax[F[_], E](val F: ConcurrentBracket[F, E]) extends AnyVal {
+
+    def bracketCase[A, B](acquire: F[A])(use: A => F[B])(release: (A, Outcome[F[*], E, B]) => F[Unit]): F[B] =
+      F uncancelable { poll =>
+        F.flatMap(acquire) { a =>
+          val finalized = onCancel(poll(use(a)), release(a, Outcome.Canceled()))
+          val handled = F.onError(finalized) { case e => F.void(F.attempt(release(a, Outcome.Errored(e)))) }
+          F.flatMap(handled)(b => F.as(F.attempt(release(a, Outcome.Completed(F.pure(b)))), b))
+        }
+      }
+
+    def bracket[A, B](acquire: F[A])(use: A => F[B])(release: A => F[Unit]): F[B] =
+      bracketCase(acquire)(use)((a, _) => release(a))
+
+    def onCancel[A](fa: F[A], body: F[Unit]): F[A] =
+      F.onCase(fa) { case Outcome.Canceled() => body }
+  }
 }

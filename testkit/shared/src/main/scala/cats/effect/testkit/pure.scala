@@ -230,7 +230,7 @@ object pure {
       def raiseError[A](e: E): PureConc[E, A] =
         M.raiseError(e)
 
-      def bracketCase[A, B](acquire: PureConc[E, A])(use: A => PureConc[E, B])(release: (A, Outcome[PureConc[E, *], E, B]) => PureConc[E, Unit]): PureConc[E, B] =
+/*      def bracketCase[A, B](acquire: PureConc[E, A])(use: A => PureConc[E, B])(release: (A, Outcome[PureConc[E, *], E, B]) => PureConc[E, Unit]): PureConc[E, B] =
         uncancelable { poll =>
           acquire flatMap { a =>
             val finalized = onCancel(poll(use(a)), release(a, Outcome.Canceled()))
@@ -240,7 +240,7 @@ object pure {
         }
 
       def onCancel[A](fa: PureConc[E, A], body: PureConc[E, Unit]): PureConc[E, A] =
-        onCase(fa) { case Outcome.Canceled() => body }
+        onCase(fa) { case Outcome.Canceled() => body }*/
 
       override def onCase[A](
           fa: PureConc[E, A])(
