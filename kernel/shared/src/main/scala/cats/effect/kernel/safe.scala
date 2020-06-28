@@ -22,7 +22,7 @@ import cats.implicits._
 
 // represents the type Bracket | Region
 sealed trait Safe[F[_], E] extends MonadError[F, E] {
-  // inverts the contravariance, allowing a lawful bracket without discussing cancelation until Concurrent
+
   type Case[A]
 
   implicit def CaseInstance: ApplicativeError[Case, E]
@@ -43,8 +43,23 @@ trait Bracket[F[_], E] extends Safe[F, E] {
       : F[B] =
     bracketCase(acquire)(use)((a, _) => release(a))
 
+  def handleCaseWith[A](fa: F[A])(
+      a: A => F[A],
+      e: E => F[A],
+      c: Case[A] => F[Unit])
+      : F[A]
+
   def onCase[A](fa: F[A])(pf: PartialFunction[Case[A], F[Unit]]): F[A] =
-    bracketCase(unit)(_ => fa)((_, c) => pf.lift(c).getOrElse(unit))
+    handleCaseWith(fa)(
+      a = a => pf.lift(a.pure[Case]).map(as(_, a)).getOrElse(pure(a)),
+
+      e = { e =>
+        val ran = pf.lift(CaseInstance.raiseError(e))
+        val rethrow = raiseError[A](e)
+        ran.map(flatMap(_)(_ => rethrow)).getOrElse(rethrow)
+      },
+
+      c = c => pf.lift(c).getOrElse(unit))
 }
 
 object Bracket {
@@ -141,7 +156,7 @@ object Bracket {
             acquire.value)(
             (optA: Option[A]) => optA.flatTraverse(a => use(a).value))(
             { (optA: Option[A], resultOpt: F.Case[Option[B]]) =>
-              val resultsF = optA flatTraverse { a =>
+              val resultsF: F[Option[Unit]] = optA flatTraverse { a =>
                 release(a, OptionT(resultOpt)).value
               }
 
