@@ -224,45 +224,26 @@ object pure {
       def pure[A](x: A): PureConc[E, A] =
         M.pure(x)
 
-      def handleErrorWith[A](fa: PureConc[E, A])(f: E => PureConc[E, A]): PureConc[E, A] =
-        M.handleErrorWith(fa)(f)
-
       def raiseError[A](e: E): PureConc[E, A] =
         M.raiseError(e)
 
-/*      def bracketCase[A, B](acquire: PureConc[E, A])(use: A => PureConc[E, B])(release: (A, Outcome[PureConc[E, *], E, B]) => PureConc[E, Unit]): PureConc[E, B] =
-        uncancelable { poll =>
-          acquire flatMap { a =>
-            val finalized = onCancel(poll(use(a)), release(a, Outcome.Canceled()))
-            val handled = finalized onError { case e => release(a, Outcome.Errored(e)).attempt.void }
-            handled.flatMap(b => release(a, Outcome.Completed(pure(b))).attempt.as(b))
-          }
-        }
-
-      def onCancel[A](fa: PureConc[E, A], body: PureConc[E, Unit]): PureConc[E, A] =
-        onCase(fa) { case Outcome.Canceled() => body }*/
-
-      override def onCase[A](
-          fa: PureConc[E, A])(
-          pf: PartialFunction[Outcome[PureConc[E, *], E, A], PureConc[E, Unit]])
+      def handleCaseWith[A](fa: PureConc[E, A])(
+          completed: A => PureConc[E, A],
+          errored: E => PureConc[E, A],
+          other: Case[A] => PureConc[E, Unit])
           : PureConc[E, A] = {
 
-        def pbody(oc: Outcome[PureConc[E, *], E, A]) =    // ...and Sherman
-          pf.lift(oc).map(_.attempt.void).getOrElse(unit)
-
         val finalizer: Finalizer[E] =
-          ec => uncancelable(_ => pbody(Functor[Outcome[PureConc[E, *], E, *]].widen(ec)) >> withCtx(_.self.popFinalizer))
+          ec => uncancelable(_ => other(Functor[Outcome[PureConc[E, *], E, *]].widen(ec)) >> withCtx(_.self.popFinalizer) )
 
         uncancelable { poll =>
-          val handled = poll(fa).handleErrorWith(e => finalizer(Outcome.Errored(e)) >> raiseError[A](e))
+          val handled = poll(fa).handleErrorWith(errored)
 
-          val completed = handled flatMap { a =>
-            uncancelable { _ =>
-              pbody(Outcome.Completed(pure(a))).as(a) <* withCtx(_.self.popFinalizer)
-            }
+          val done = handled flatMap { a =>
+            completed(a) <* withCtx(_.self.popFinalizer)
           }
 
-          withCtx[E, Unit](_.self.pushFinalizer(finalizer)) >> completed
+          withCtx[E, Unit](_.self.pushFinalizer(finalizer)) >> done
         }
       }
 
@@ -298,8 +279,8 @@ object pure {
         )(
           toResult: (L, OtherFiber) => Result
         ): PureConc[E, L] = withCtx { (ctx2: FiberCtx[E]) =>
-          val body = bracketCase(unit)(_ => that) {
-            case (_, Outcome.Completed(fa)) =>
+          val body = onCase(that) {
+            case Outcome.Completed(fa) =>
               // we need to do special magic to make cancelation distribute over race analogously to uncancelable
               ctx2.self.canceled.ifM(
                 foldResult(Outcome.Canceled()),
@@ -310,10 +291,10 @@ object pure {
                 } yield ()
               )
 
-            case (_, Outcome.Errored(e)) =>
+            case Outcome.Errored(e) =>
               foldResult(Outcome.Errored(e))
 
-            case (_, Outcome.Canceled()) =>
+            case Outcome.Canceled() =>
               foldResult(Outcome.Canceled())
           }
 
@@ -418,7 +399,7 @@ object pure {
                 _ <- fiberAVar.put(fiberA)
                 _ <- fiberBVar.put(fiberB)
 
-                backOC <- onCancel(poll(results.read), fiberA.cancel >> fiberB.cancel)
+                backOC <- this.onCancel(poll(results.read), fiberA.cancel >> fiberB.cancel)
 
                 back <- backOC match {
                   case Outcome.Completed(res) =>

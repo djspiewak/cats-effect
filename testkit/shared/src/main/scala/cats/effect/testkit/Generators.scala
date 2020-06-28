@@ -160,15 +160,17 @@ trait BracketGenerators[F[_], E] extends MonadErrorGenerators[F, E] {
   implicit def cogenCase[A: Cogen]: Cogen[Case[A]]
 
   override protected def recursiveGen[A: Arbitrary: Cogen](deeper: GenK[F]): List[(String, Gen[F[A]])] = List(
-    "bracketCase" -> genBracketCase[A](deeper)
+    "handleCaseWith" -> genHandleCaseWith[A](deeper)
   ) ++ super.recursiveGen[A](deeper)
 
-  private def genBracketCase[A: Arbitrary: Cogen](deeper: GenK[F]): Gen[F[A]] = {
+  private def genHandleCaseWith[A: Arbitrary: Cogen](deeper: GenK[F]): Gen[F[A]] = {
     for {
-      acquire <- deeper[A]
-      use <- Gen.function1[A, F[A]](deeper[A])
-      release <- Gen.function2[A, Case[A], F[Unit]](deeper[Unit])
-    } yield F.bracketCase(acquire)(use)(release)
+      target <- deeper[A]
+
+      fA <- Gen.function1[A, F[A]](deeper[A])
+      fE <- Gen.function1[E, F[A]](deeper[A])
+      fC <- Gen.function1[Case[A], F[Unit]](deeper[Unit])
+    } yield F.handleCaseWith(target)(completed = fA, errored = fE, other = fC)
   }
 }
 

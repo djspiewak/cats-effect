@@ -27,7 +27,7 @@ trait BracketLaws[F[_], E] extends MonadErrorLaws[F, E] {
   import F.CaseInstance
 
   def handleCaseWithCoherence[A](fa: F[A], result: A => F[A], err: E => F[A]) =
-    F.handleCaseWith(fa)(a = result, e = err, c = _ => F.unit) <->
+    F.handleCaseWith(fa)(completed = result, errored = err, other = _ => F.unit) <->
       F.handleErrorWith(F.flatMap(fa)(result))(err)
 
   def onCasePureCoherence[A](a: A, release: PartialFunction[F.Case[A], F[Unit]]) =
