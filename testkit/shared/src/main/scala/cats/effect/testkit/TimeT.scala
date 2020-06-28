@@ -56,17 +56,8 @@ object TimeT {
     }
 
   implicit def temporalB[F[_], E](implicit F: ConcurrentBracket[F, E]): TemporalBracket[TimeT[F, *], E] =
-    new TimeTTemporal[F, E] with Bracket[TimeT[F, *], E]  {
-      def bracketCase[A, B](
-          acquire: TimeT[F, A])(
-          use: A => TimeT[F, B])(
-          release: (A, Outcome[TimeT[F, *], E, B]) => TimeT[F, Unit])
-          : TimeT[F, B] =
-        Kleisli { time =>
-          F.bracketCase(acquire.run(time))(use.andThen(_.run(time))) { (a, oc) =>
-            release(a, oc.mapK(Kleisli.liftK[F, Time])).run(time)
-          }
-        }
+    new TimeTTemporal[F, E] with Bracket[TimeT[F, *], E] {
+      // ???
     }
 
   type TimeTR[R[_[_], _]] = { type L[F[_], A] = TimeT[R[F, *], A] }

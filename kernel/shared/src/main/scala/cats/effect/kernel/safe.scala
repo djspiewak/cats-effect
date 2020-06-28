@@ -28,6 +28,8 @@ sealed trait Safe[F[_], E] extends MonadError[F, E] {
   implicit def CaseInstance: ApplicativeError[Case, E]
 }
 
+// TODO s/Bracket/MonadSafe/g
+// TODO s/Bracket/MonadCase/g
 trait Bracket[F[_], E] extends Safe[F, E] {
 
   def handleCaseWith[A](fa: F[A])(
