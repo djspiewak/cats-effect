@@ -14,49 +14,79 @@
  * limitations under the License.
  */
 
-// /*
-//  * Copyright (c) 2017-2019 The Typelevel Cats-effect Project Developers
-//  *
-//  * Licensed under the Apache License, Version 2.0 (the "License");
-//  * you may not use this file except in compliance with the License.
-//  * You may obtain a copy of the License at
-//  *
-//  *     http://www.apache.org/licenses/LICENSE-2.0
-//  *
-//  * Unless required by applicable law or agreed to in writing, software
-//  * distributed under the License is distributed on an "AS IS" BASIS,
-//  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  * See the License for the specific language governing permissions and
-//  * limitations under the License.
-//  */
+package cats
+package effect
+package concurrent
 
-// package cats
-// package effect
-// package concurrent
+import cats.{Eq, Order, Show}
+import cats.data.State
+import cats.kernel.laws.discipline.MonoidTests
+import cats.effect.laws.EffectTests
+import cats.effect.testkit.{AsyncGenerators, BracketGenerators, GenK, OutcomeGenerators, TestContext}
+import cats.implicits._
 
-// import scala.concurrent.ExecutionContext
-// import scala.concurrent.duration._
-// import cats.implicits._
-// import org.scalatest._
-// import org.scalatest.matchers.should.Matchers
-// import org.scalatest.funsuite.AsyncFunSuite
+import org.scalacheck.{Arbitrary, Cogen, Gen, Prop}
+// import org.scalacheck.rng.Seed
 
-// class DeferredTests extends AsyncFunSuite with Matchers {
-//   implicit override def executionContext: ExecutionContext = ExecutionContext.Implicits.global
-//   implicit val timer: cats.effect.Timer[IO] = IO.timer(executionContext)
-//   implicit val cs: ContextShift[IO] = IO.contextShift(executionContext)
+import org.specs2.ScalaCheck
+// import org.specs2.scalacheck.Parameters
+import org.specs2.matcher.Matcher
+import org.specs2.specification.core.Fragments
 
-//   trait DeferredConstructor { def apply[A]: IO[Deferred[IO, A]] }
-//   trait TryableDeferredConstructor { def apply[A]: IO[TryableDeferred[IO, A]] }
+import org.typelevel.discipline.specs2.mutable.Discipline
 
-//   def tests(label: String, pc: DeferredConstructor): Unit = {
-//     test(s"$label - complete") {
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
+
+import java.util.concurrent.TimeUnit
+
+class DeferresSpec extends IOPlatformSpecification with Discipline with ScalaCheck with BaseSpec { outer =>
+
+  import OutcomeGenerators._
+
+  sequential
+
+  val ctx = TestContext()
+
+  trait DeferredConstructor { def apply[A]: IO[Deferred[IO, A]] }
+  trait TryableDeferredConstructor { def apply[A]: IO[TryableDeferred[IO, A]] }
+
+  "deferred" should {
+
+    //TODO does this distinction make sense any more?
+    tests("concurrent", new DeferredConstructor { def apply[A] = Deferred[IO, A] })
+    tests("concurrentTryable", new DeferredConstructor { def apply[A] = Deferred.tryable[IO, A] })
+    tests("async", new DeferredConstructor { def apply[A] = Deferred.uncancelable[IO, A] })
+    tests("asyncTryable", new DeferredConstructor { def apply[A] = Deferred.tryableUncancelable[IO, A] })
+
+    tryableTests("concurrentTryable", new TryableDeferredConstructor { def apply[A] = Deferred.tryable[IO, A] })
+    tryableTests("asyncTryable", new TryableDeferredConstructor { def apply[A] = Deferred.tryableUncancelable[IO, A] })
+
+    "concurrent - get - cancel before forcing" in {
+      cancelBeforeForcing(Deferred.apply) must completeAs(None)
+    }
+
+  }
+
+  def tests(label: String, pc: DeferredConstructor): Fragments = {
+    s"$label - complete" in {
+      pc[Int]
+        .flatMap { p =>
+          p.complete(0) *> p.get
+        } must completeAs(0)
+    }
+
+//     test(s"$label - complete is only successful once") {
 //       pc[Int]
 //         .flatMap { p =>
-//           p.complete(0) *> p.get
+//           (p.complete(0) *> p.complete(1).attempt).product(p.get)
 //         }
 //         .unsafeToFuture()
-//         .map(_ shouldBe 0)
+//         .map {
+//           case (err, value) =>
+//             err.swap.toOption.get shouldBe an[IllegalStateException]
+//             value shouldBe 0
+//         }
 //     }
 
 //     test(s"$label - complete is only successful once") {
@@ -72,60 +102,50 @@
 //         }
 //     }
 
-//     test(s"$label - get blocks until set") {
-//       val op = for {
-//         state <- Ref[IO].of(0)
-//         modifyGate <- pc[Unit]
-//         readGate <- pc[Unit]
-//         _ <- IO.shift *> (modifyGate.get *> state.update(_ * 2) *> readGate.complete(())).start
-//         _ <- IO.shift *> (state.set(1) *> modifyGate.complete(())).start
-//         _ <- readGate.get
-//         res <- state.get
-//       } yield res
-//       op.unsafeToFuture().map(_ shouldBe 2)
-//     }
-//   }
+    s"$label - get blocks until set" in {
+      val op = for {
+        state <- Ref[IO].of(0)
+        modifyGate <- pc[Unit]
+        readGate <- pc[Unit]
+        _ <- (modifyGate.get *> state.update(_ * 2) *> readGate.complete(())).start
+        _ <- (state.set(1) *> modifyGate.complete(())).start
+        _ <- readGate.get
+        res <- state.get
+      } yield res
 
-//   def tryableTests(label: String, pc: TryableDeferredConstructor): Unit = {
-//     test(s"$label - tryGet returns None for unset Deferred") {
-//       pc[Unit].flatMap(_.tryGet).unsafeToFuture().map(_ shouldBe None)
-//     }
+      op must completeAs(2)
+    }
+  }
 
-//     test(s"$label - tryGet returns Some() for set Deferred") {
-//       val op = for {
-//         d <- pc[Unit]
-//         _ <- d.complete(())
-//         result <- d.tryGet
-//       } yield result shouldBe Some(())
+  def tryableTests(label: String, pc: TryableDeferredConstructor): Fragments = {
+    s"$label - tryGet returns None for unset Deferred" in {
+      pc[Unit].flatMap(_.tryGet) must completeAs(None)
+    }
 
-//       op.unsafeToFuture()
-//     }
-//   }
+    s"$label - tryGet returns Some() for set Deferred" in {
+      val op = for {
+        d <- pc[Unit]
+        _ <- d.complete(())
+        result <- d.tryGet
+      } yield result
 
-//   tests("concurrent", new DeferredConstructor { def apply[A] = Deferred[IO, A] })
-//   tests("concurrentTryable", new DeferredConstructor { def apply[A] = Deferred.tryable[IO, A] })
-//   tests("async", new DeferredConstructor { def apply[A] = Deferred.uncancelable[IO, A] })
-//   tests("asyncTryable", new DeferredConstructor { def apply[A] = Deferred.tryableUncancelable[IO, A] })
+      op must completeAs(Some(()))
+    }
+  }
 
-//   tryableTests("concurrentTryable", new TryableDeferredConstructor { def apply[A] = Deferred.tryable[IO, A] })
-//   tryableTests("asyncTryable", new TryableDeferredConstructor { def apply[A] = Deferred.tryableUncancelable[IO, A] })
+  private def cancelBeforeForcing(pc: IO[Deferred[IO, Int]]): IO[Option[Int]] =
+    for {
+      r <- Ref[IO].of(Option.empty[Int])
+      p <- pc
+      fiber <- p.get.start
+      _ <- fiber.cancel
+      _ <- (fiber.join.flatMap(i => r.set(Some(i)))).start
+      _ <- IO.sleep(100.millis)
+      _ <- p.complete(42)
+      _ <- IO.sleep(100.millis)
+      result <- r.get
+    } yield result
 
-//   private def cancelBeforeForcing(pc: IO[Deferred[IO, Int]]): IO[Option[Int]] =
-//     for {
-//       r <- Ref[IO].of(Option.empty[Int])
-//       p <- pc
-//       fiber <- p.get.start
-//       _ <- fiber.cancel
-//       _ <- (IO.shift *> fiber.join.flatMap(i => r.set(Some(i)))).start
-//       _ <- timer.sleep(100.millis)
-//       _ <- p.complete(42)
-//       _ <- timer.sleep(100.millis)
-//       result <- r.get
-//     } yield result
-
-//   test("concurrent - get - cancel before forcing") {
-//     cancelBeforeForcing(Deferred.apply).unsafeToFuture().map(_ shouldBe None)
-//   }
 
 //   test("issue #380: complete doesn't block, test #1") {
 //     def execute(times: Int): IO[Assertion] = {
@@ -172,4 +192,4 @@
 
 //     execute(100).unsafeToFuture()
 //   }
-// }
+}
