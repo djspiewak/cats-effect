@@ -17,7 +17,7 @@
 package cats.effect.internals
 
 import java.util.concurrent.atomic.AtomicBoolean
-import cats.effect.internals.TrampolineEC.immediate
+import TrampolineEC.immediate
 import scala.concurrent.Promise
 import scala.util.{Failure, Left, Success, Try}
 

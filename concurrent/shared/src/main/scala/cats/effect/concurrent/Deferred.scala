@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicReference
 
 import cats.effect.concurrent.Deferred.TransformedDeferred
 
+import cats.effect.kernel.{Async, Concurrent, Sync}
+
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Promise}
 import scala.util.{Failure, Success}
