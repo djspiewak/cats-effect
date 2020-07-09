@@ -183,7 +183,7 @@ celable` values unsafe. Such values are only useful
                     if (ref.compareAndSet(s, updated)) ()
                     else unregister()
                 }
-              F.delay(unregister())
+              F.pure(Some(F.delay(unregister())))
             }
         }
       }
@@ -256,6 +256,7 @@ celable` values unsafe. Such values are only useful
           case Success(a) => cb(Right(a))
           case Failure(t) => cb(Left(t))
         }
+        F.pure(None)
       }
 
     def tryGet: F[Option[A]] =
@@ -267,7 +268,10 @@ celable` values unsafe. Such values are only useful
       }
 
     private[this] val asyncBoundary =
-      F.async[Unit](cb => cb(rightUnit))
+      F.async[Unit] { cb =>
+        cb(rightUnit)
+        F.pure(None)
+      }
   }
 
   final private class TransformedDeferred[F[_], G[_], A](underlying: Deferred[F, A], trans: F ~> G)
