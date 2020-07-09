@@ -132,10 +132,10 @@ trait BaseSpec extends Specification { outer =>
   implicit def boolRunnings(iob: IO[Boolean]): Prop =
     Prop(unsafeRun(iob).fold(false, _ => false, _.getOrElse(false)))
 
-  def completeMatching[A: Show](expected: Matcher[A]): Matcher[IO[A]] = { (ioa: IO[A]) =>
+  def completeMatching[A: Show](matchExpected: Matcher[A]): Matcher[IO[A]] = { (ioa: IO[A]) =>
     val oc = unsafeRun(ioa)
     oc must beLike {
-      case Outcome.Completed(Some(v)) => (v must expected, s"${oc.show} does not match ${expected.toString}")
+      case Outcome.Completed(Some(v)) => v must matchExpected
     }
   }
 
