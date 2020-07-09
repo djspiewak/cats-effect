@@ -127,6 +127,13 @@ trait BaseSpec extends Specification { outer =>
   implicit def boolRunnings(iob: IO[Boolean]): Prop =
     Prop(unsafeRun(iob).fold(false, _ => false, _.getOrElse(false)))
 
+  def completeMatching[A: Show](matchExpected: Matcher[A]): Matcher[IO[A]] = { (ioa: IO[A]) =>
+    val oc = unsafeRun(ioa)
+    oc must beLike {
+      case Outcome.Completed(Some(v)) => v must matchExpected
+    }
+  }
+
   def completeAs[A: Eq: Show](expected: A): Matcher[IO[A]] =
     tickTo(Outcome.Completed(Some(expected)))
 
@@ -174,4 +181,5 @@ trait BaseSpec extends Specification { outer =>
       def nowMillis() = ctx.now().toMillis
       def monotonicNanos() = ctx.now().toNanos
     }
+
 }
