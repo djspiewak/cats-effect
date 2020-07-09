@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import cats.effect.concurrent.Deferred.TransformedDeferred
 
-import cats.effect.kernel.{Async, Concurrent, Sync}
+import cats.effect.kernel.{Async, Sync}
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Promise}
@@ -96,11 +96,11 @@ abstract class TryableDeferred[F[_], A] extends Deferred[F, A] {
 object Deferred {
 
   /** Creates an unset promise. **/
-  def apply[F[_], A](implicit F: Sync[F]): F[Deferred[F, A]] =
+  def apply[F[_], A](implicit F: Async[F]): F[Deferred[F, A]] =
     F.delay(unsafe[F, A])
 
   /** Creates an unset tryable promise. **/
-  def tryable[F[_], A](implicit F: Sync[F]): F[TryableDeferred[F, A]] =
+  def tryable[F[_], A](implicit F: Async[F]): F[TryableDeferred[F, A]] =
     F.delay(unsafeTryable[F, A])
 
   /**
@@ -109,14 +109,15 @@ object Deferred {
    * unsafe because it is not referentially transparent -- it
    * allocates mutable state.
    */
-  def unsafe[F[_]: Sync, A]: Deferred[F, A] = unsafeTryable[F, A]
+  def unsafe[F[_]: Async, A]: Deferred[F, A] = unsafeTryable[F, A]
 
   /**
    * Creates an unset promise that only requires an [[Async]] and
    * does not support cancellation of `get`.
    *
    * WARN: some `Async` data types, like [[IO]], can be cancelable,
-   * making `uncancelable` values unsafe. Such values are only useful
+   * making `uncan
+celable` values unsafe. Such values are only useful
    * for optimization purposes, in cases where the use case does not
    * require cancellation or in cases in which an `F[_]` data type
    * that does not support cancellation is used.
@@ -125,7 +126,7 @@ object Deferred {
     F.delay(unsafeUncancelable[F, A])
 
   /** Like [[apply]] but initializes state using another effect constructor */
-  def in[F[_], G[_], A](implicit F: Sync[F], G: Sync[G]): F[Deferred[G, A]] =
+  def in[F[_], G[_], A](implicit F: Sync[F], G: Async[G]): F[Deferred[G, A]] =
     F.delay(unsafe[G, A])
 
   /** Like [[uncancelable]] but initializes state using another effect constructor */
@@ -149,8 +150,8 @@ object Deferred {
    */
   def unsafeUncancelable[F[_]: Async, A]: Deferred[F, A] = unsafeTryableUncancelable[F, A]
 
-  private def unsafeTryable[F[_]: Sync, A]: TryableDeferred[F, A] =
-    new ConcurrentDeferred[F, A](new AtomicReference(Deferred.State.Unset(LinkedMap.empty)))
+  private def unsafeTryable[F[_]: Async, A]: TryableDeferred[F, A] =
+    new AsyncDeferred[F, A](new AtomicReference(Deferred.State.Unset(LinkedMap.empty)))
 
   private def unsafeTryableUncancelable[F[_]: Async, A]: TryableDeferred[F, A] =
     new UncancelableDeferred[F, A](Promise[A]())
@@ -163,7 +164,7 @@ object Deferred {
     final case class Unset[A](waiting: LinkedMap[Id, A => Unit]) extends State[A]
   }
 
-  final private class ConcurrentDeferred[F[_], A](ref: AtomicReference[State[A]])(implicit F: Sync[F])
+  final private class AsyncDeferred[F[_], A](ref: AtomicReference[State[A]])(implicit F: Async[F])
       extends TryableDeferred[F, A] {
     def get: F[A] =
       F.defer {
@@ -171,7 +172,7 @@ object Deferred {
           case State.Set(a) =>
             F.pure(a)
           case State.Unset(_) =>
-            F.cancelable[A] { cb =>
+            F.async[A] { cb =>
               val id = unsafeRegister(cb)
               @tailrec
               def unregister(): Unit =
