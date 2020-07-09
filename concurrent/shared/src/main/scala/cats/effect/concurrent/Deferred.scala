@@ -96,11 +96,11 @@ abstract class TryableDeferred[F[_], A] extends Deferred[F, A] {
 object Deferred {
 
   /** Creates an unset promise. **/
-  def apply[F[_], A](implicit F: Concurrent[F]): F[Deferred[F, A]] =
+  def apply[F[_], A](implicit F: Sync[F]): F[Deferred[F, A]] =
     F.delay(unsafe[F, A])
 
   /** Creates an unset tryable promise. **/
-  def tryable[F[_], A](implicit F: Concurrent[F]): F[TryableDeferred[F, A]] =
+  def tryable[F[_], A](implicit F: Sync[F]): F[TryableDeferred[F, A]] =
     F.delay(unsafeTryable[F, A])
 
   /**
@@ -109,7 +109,7 @@ object Deferred {
    * unsafe because it is not referentially transparent -- it
    * allocates mutable state.
    */
-  def unsafe[F[_]: Concurrent, A]: Deferred[F, A] = unsafeTryable[F, A]
+  def unsafe[F[_]: Sync, A]: Deferred[F, A] = unsafeTryable[F, A]
 
   /**
    * Creates an unset promise that only requires an [[Async]] and
@@ -125,7 +125,7 @@ object Deferred {
     F.delay(unsafeUncancelable[F, A])
 
   /** Like [[apply]] but initializes state using another effect constructor */
-  def in[F[_], G[_], A](implicit F: Sync[F], G: Concurrent[G]): F[Deferred[G, A]] =
+  def in[F[_], G[_], A](implicit F: Sync[F], G: Sync[G]): F[Deferred[G, A]] =
     F.delay(unsafe[G, A])
 
   /** Like [[uncancelable]] but initializes state using another effect constructor */
@@ -149,7 +149,7 @@ object Deferred {
    */
   def unsafeUncancelable[F[_]: Async, A]: Deferred[F, A] = unsafeTryableUncancelable[F, A]
 
-  private def unsafeTryable[F[_]: Concurrent, A]: TryableDeferred[F, A] =
+  private def unsafeTryable[F[_]: Sync, A]: TryableDeferred[F, A] =
     new ConcurrentDeferred[F, A](new AtomicReference(Deferred.State.Unset(LinkedMap.empty)))
 
   private def unsafeTryableUncancelable[F[_]: Async, A]: TryableDeferred[F, A] =
