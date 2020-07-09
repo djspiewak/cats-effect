@@ -16,9 +16,11 @@
 
 package cats.effect
 
-import cats.{Eq, Order, Show}
-import cats.effect.testkit.{AsyncGenerators, BracketGenerators, GenK, OutcomeGenerators, TestContext}
 import cats.implicits._
+import cats.{Eq, Order, Show}
+import cats.kernel.laws.discipline.MonoidTests
+import cats.effect.laws.EffectTests
+import cats.effect.testkit.{AsyncGenerators, BracketGenerators, GenK, OutcomeGenerators, TestContext}
 
 import org.scalacheck.{Arbitrary, Cogen, Gen, Prop}
 
@@ -172,5 +174,4 @@ trait BaseSpec extends Specification { outer =>
       def nowMillis() = ctx.now().toMillis
       def monotonicNanos() = ctx.now().toNanos
     }
-
 }
