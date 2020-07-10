@@ -20,7 +20,10 @@ import scala.concurrent.ExecutionContext
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.Executors
 
-case class IORuntime(compute: ExecutionContext, timer: UnsafeTimer) extends IORuntimePlatform {
+final class IORuntime private (
+    protected val compute: ExecutionContext, 
+    protected val timer: UnsafeTimer
+  ) extends IORuntimePlatform {
 
   def unsafeRunAsync[A](ioa: IO[A])(
       cb: Either[Throwable, A] => Unit)
@@ -50,4 +53,8 @@ case class IORuntime(compute: ExecutionContext, timer: UnsafeTimer) extends IORu
   }
 }
 
-object IORuntime extends IORuntimeCompanionPlatform
+object IORuntime extends IORuntimeCompanionPlatform {
+
+  def apply(compute: ExecutionContext, timer: UnsafeTimer): IORuntime =
+    new IORuntime(compute, timer)
+}

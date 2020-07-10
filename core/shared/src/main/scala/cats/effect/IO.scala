@@ -23,12 +23,15 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-sealed abstract class IO[+A] private () {
+sealed abstract class IO[+A] private () extends IOPlatform[A] {
 
   private[effect] def tag: Byte
 
+  def <*[B](that: IO[B]): IO[A] =
+    productL(that)
+
   def *>[B](that: IO[B]): IO[B] =
-    flatMap(_ => that)
+    productR(that)
 
   def >>[B](that: => IO[B]): IO[B] =
     flatMap(_ => that)
@@ -74,6 +77,12 @@ sealed abstract class IO[+A] private () {
 
   def onCancel(body: IO[Unit]): IO[A] =
     onCase { case Outcome.Canceled() => body }
+
+  def productL[B](that: IO[B]): IO[A] =
+    flatMap(a => that.as(a))
+
+  def productR[B](that: IO[B]): IO[B] =
+    flatMap(_ => that)
 
   def race[B](that: IO[B]): IO[Either[A, B]] =
     racePair(that) flatMap {

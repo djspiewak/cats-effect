@@ -23,7 +23,7 @@ trait IOApp {
   def run(args: List[String]): IO[Int]
 
   final def main(args: Array[String]): Unit = {
-    val (runtime, shutdownRuntime) = IORuntime.build
+    val (runtime, shutdownRuntime) = IORuntime.build()
 
     val latch = new CountDownLatch(1)
     @volatile var results: Either[Throwable, Int] = null

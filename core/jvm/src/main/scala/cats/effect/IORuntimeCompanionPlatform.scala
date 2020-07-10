@@ -23,9 +23,9 @@ import java.util.concurrent.{CountDownLatch, Executors, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 private[effect] abstract class IORuntimeCompanionPlatform { self: IORuntime.type =>
-  lazy val default: IORuntime = build._1
+  lazy val default: IORuntime = build()._1
 
-  private[effect] def build: (IORuntime, () => Unit) = {
+  private[effect] def build(): (IORuntime, () => Unit) = {
     val threadCount = new AtomicInteger(0)
     val runtime = Runtime.getRuntime()
     val executor = Executors.newFixedThreadPool(runtime.availableProcessors(), { (r: Runnable) =>
@@ -44,7 +44,7 @@ private[effect] abstract class IORuntimeCompanionPlatform { self: IORuntime.type
       t
     }
     val timer = UnsafeTimer.fromScheduledExecutor(scheduler)
-    (IORuntime(context, timer), () => {
+    (IORuntime(context, timer), { () =>
       executor.shutdown()
       scheduler.shutdown()
     })

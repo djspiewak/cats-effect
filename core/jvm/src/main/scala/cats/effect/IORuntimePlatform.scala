@@ -22,8 +22,8 @@ import scala.concurrent.duration._
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
 private[effect] abstract class IORuntimePlatform { self: IORuntime =>
-  def compute: ExecutionContext
-  def timer: UnsafeTimer
+  protected def compute: ExecutionContext
+  protected def timer: UnsafeTimer
 
   final def unsafeRunSync[A](ioa: IO[A]): A =
     unsafeRunTimed(ioa, Long.MaxValue.nanos).get
