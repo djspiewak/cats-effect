@@ -17,8 +17,7 @@
 package cats.effect
 
 object Repl {
-  private lazy val yoloRuntime: IORuntime = IORuntime.default
   implicit class Yolo[A](private val self: IO[A]) extends AnyVal {
-    def yolo: A = yoloRuntime.unsafeRunSync(self)
+    def yolo: A = IORuntime.default.unsafeRunSync(self)
   }
 }
