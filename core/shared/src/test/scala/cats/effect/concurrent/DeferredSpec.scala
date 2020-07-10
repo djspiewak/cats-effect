@@ -40,7 +40,7 @@ import scala.concurrent.duration._
 
 import java.util.concurrent.TimeUnit
 
-class DeferresSpec extends IOPlatformSpecification with Discipline with ScalaCheck with BaseSpec { outer =>
+class DeferredSpec extends IOPlatformSpecification with Discipline with ScalaCheck with BaseSpec { outer =>
 
   import OutcomeGenerators._
 
@@ -66,6 +66,57 @@ class DeferresSpec extends IOPlatformSpecification with Discipline with ScalaChe
       cancelBeforeForcing(Deferred.apply) must completeAs(None)
     }
 
+    //TODO why does this block?
+    // "issue #380: complete doesn't block, test #1" in {
+    //   def execute(times: Int): IO[Boolean] = {
+    //     def foreverAsync(i: Int): IO[Unit] =
+    //       if (i == 512) IO.async[Unit] { cb =>
+    //         cb(Right(()))
+    //         IO.pure(None)
+    //       } >> foreverAsync(0)
+    //       else IO.unit >> foreverAsync(i + 1)
+
+    //     val task = for {
+    //       d <- Deferred[IO, Unit]
+    //       latch <- Deferred[IO, Unit]
+    //       fb <- (latch.complete(()) *> d.get *> foreverAsync(0)).start
+    //       _ <- latch.get
+    //       _ <- timeout(d.complete(()), 15.seconds).guarantee(fb.cancel)
+    //     } yield {
+    //       true
+    //     }
+
+    //     task.flatMap { r =>
+    //       if (times > 0) execute(times - 1)
+    //       else IO.pure(r)
+    //     }
+    //   }
+
+    //   execute(100) must completeAs(true)
+    // }
+
+    //TODO why does this block?
+  // "issue #380: complete doesn't block, test #2" in {
+  //   def execute(times: Int): IO[Boolean] = {
+  //     val task = for {
+  //       d <- Deferred[IO, Unit]
+  //       latch <- Deferred[IO, Unit]
+  //       fb <- (latch.complete(()) *> d.get *> IO.unit.foreverM).start
+  //       _ <- latch.get
+  //       _ <- timeout(d.complete(()),15.seconds).guarantee(fb.cancel)
+  //     } yield {
+  //       true
+  //     }
+
+  //     task.flatMap { r =>
+  //       if (times > 0) execute(times - 1)
+  //       else IO.pure(r)
+  //     }
+  //   }
+
+  //   execute(100) must completeAs(true)
+  // }
+
   }
 
   def tests(label: String, pc: DeferredConstructor): Fragments = {
@@ -76,31 +127,18 @@ class DeferresSpec extends IOPlatformSpecification with Discipline with ScalaChe
         } must completeAs(0)
     }
 
-//     test(s"$label - complete is only successful once") {
-//       pc[Int]
-//         .flatMap { p =>
-//           (p.complete(0) *> p.complete(1).attempt).product(p.get)
-//         }
-//         .unsafeToFuture()
-//         .map {
-//           case (err, value) =>
-//             err.swap.toOption.get shouldBe an[IllegalStateException]
-//             value shouldBe 0
-//         }
-//     }
+    s"$label - complete is only successful once" in {
+      val op = pc[Int]
+        .flatMap { p =>
+          (p.complete(0) *> p.complete(1).attempt).product(p.get)
+        }
 
-//     test(s"$label - complete is only successful once") {
-//       pc[Int]
-//         .flatMap { p =>
-//           (p.complete(0) *> p.complete(1).attempt).product(p.get)
-//         }
-//         .unsafeToFuture()
-//         .map {
-//           case (err, value) =>
-//             err.swap.toOption.get shouldBe an[IllegalStateException]
-//             value shouldBe 0
-//         }
-//     }
+      println(unsafeRun(op))
+
+      op must completeMatching(beLike {
+        case (Left(e), 0) => e must haveClass[IllegalStateException]
+      })
+    }
 
     s"$label - get blocks until set" in {
       val op = for {
@@ -139,57 +177,28 @@ class DeferresSpec extends IOPlatformSpecification with Discipline with ScalaChe
       p <- pc
       fiber <- p.get.start
       _ <- fiber.cancel
-      _ <- (fiber.join.flatMap(i => r.set(Some(i)))).start
+      _ <- (fiber.join.flatMap {
+        case Outcome.Completed(ioi) => ioi.flatMap(i => r.set(Some(i)))
+        case _                      => IO.raiseError(new RuntimeException)
+      }).start
       _ <- IO.sleep(100.millis)
       _ <- p.complete(42)
       _ <- IO.sleep(100.millis)
       result <- r.get
     } yield result
 
+  //TODO remove once we have these as derived combinators again
+  private def timeoutTo[F[_], E, A](fa: F[A], duration: FiniteDuration, fallback: F[A])(
+    implicit F: Temporal[F, E]
+  ): F[A] =
+    F.race(fa, F.sleep(duration)).flatMap {
+      case Left(a)  => F.pure(a)
+      case Right(_) => fallback
+    }
 
-//   test("issue #380: complete doesn't block, test #1") {
-//     def execute(times: Int): IO[Assertion] = {
-//       def foreverAsync(i: Int): IO[Unit] =
-//         if (i == 512) IO.async[Unit](cb => cb(Right(()))) >> foreverAsync(0)
-//         else IO.unit >> foreverAsync(i + 1)
+  private def timeout[F[_], A](fa: F[A], duration: FiniteDuration)(implicit F: Temporal[F, Throwable]): F[A] = {
+    val timeoutException = F.raiseError[A](new RuntimeException(duration.toString))
+    timeoutTo(fa, duration, timeoutException)
+  }
 
-//       val task = for {
-//         d <- Deferred[IO, Unit]
-//         latch <- Deferred[IO, Unit]
-//         fb <- (latch.complete(()) *> d.get *> foreverAsync(0)).start
-//         _ <- latch.get
-//         _ <- d.complete(()).timeout(15.seconds).guarantee(fb.cancel)
-//       } yield {
-//         Succeeded
-//       }
-
-//       task.flatMap { r =>
-//         if (times > 0) execute(times - 1)
-//         else IO.pure(r)
-//       }
-//     }
-
-//     execute(100).unsafeToFuture()
-//   }
-
-//   test("issue #380: complete doesn't block, test #2") {
-//     def execute(times: Int): IO[Assertion] = {
-//       val task = for {
-//         d <- Deferred[IO, Unit]
-//         latch <- Deferred[IO, Unit]
-//         fb <- (latch.complete(()) *> d.get *> IO.unit.foreverM).start
-//         _ <- latch.get
-//         _ <- d.complete(()).timeout(15.seconds).guarantee(fb.cancel)
-//       } yield {
-//         Succeeded
-//       }
-
-//       task.flatMap { r =>
-//         if (times > 0) execute(times - 1)
-//         else IO.pure(r)
-//       }
-//     }
-
-//     execute(100).unsafeToFuture()
-//   }
 }
