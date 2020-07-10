@@ -27,6 +27,12 @@ sealed abstract class IO[+A] private () {
 
   private[effect] def tag: Byte
 
+  def *>[B](that: IO[B]): IO[B] =
+    flatMap(_ => that)
+
+  def >>[B](that: => IO[B]): IO[B] =
+    flatMap(_ => that)
+
   def as[B](b: B): IO[B] =
     map(_ => b)
 
