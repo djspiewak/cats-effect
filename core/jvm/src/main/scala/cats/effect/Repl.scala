@@ -16,5 +16,9 @@
 
 package cats.effect
 
-private[effect] abstract class IOPlatform[+A] { self: IO[A] =>
+object Repl {
+  private lazy val yoloRuntime: IORuntime = IORuntime.default
+  implicit class Yolo[A](private val self: IO[A]) extends AnyVal {
+    def yolo: A = yoloRuntime.unsafeRunSync(self)
+  }
 }

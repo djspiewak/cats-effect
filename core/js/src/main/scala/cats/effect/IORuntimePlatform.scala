@@ -16,14 +16,5 @@
 
 package cats.effect
 
-trait IOApp {
-
-  val run: IO[Unit]
-
-  final def main(args: Array[String]): Unit = {
-    IORuntime.default.unsafeRunAsync(run) {
-      case Left(t) => throw t
-      case Right(_) => ()
-    }
-  }
+private[effect] abstract class IORuntimePlatform { self: IORuntime =>
 }

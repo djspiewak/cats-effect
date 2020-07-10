@@ -557,7 +557,7 @@ class IOSpec extends IOPlatformSpecification with Discipline with ScalaCheck { o
     try {
       var results: Outcome[Option, Throwable, A] = Outcome.Completed(None)
 
-      ioa.unsafeRunAsync(ctx, timer) {
+      IORuntime(ctx, timer).unsafeRunAsync(ioa) {
         case Left(t) => results = Outcome.Errored(t)
         case Right(a) => results = Outcome.Completed(Some(a))
       }

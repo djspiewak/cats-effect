@@ -23,7 +23,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-sealed abstract class IO[+A] private () extends IOPlatform[A] {
+sealed abstract class IO[+A] private () {
 
   private[effect] def tag: Byte
 
@@ -155,36 +155,6 @@ sealed abstract class IO[+A] private () extends IOPlatform[A] {
 
   def uncancelable: IO[A] =
     IO.uncancelable(_ => this)
-
-  def unsafeRunAsync(
-      ec: ExecutionContext,
-      timer: UnsafeTimer)(
-      cb: Either[Throwable, A] => Unit)
-      : Unit =
-    unsafeRunFiber(ec, timer, true)(cb)
-
-  private[effect] def unsafeRunFiber(
-      ec: ExecutionContext,
-      timer: UnsafeTimer,
-      shift: Boolean)(
-      cb: Either[Throwable, A] => Unit)
-      : IOFiber[A @uncheckedVariance] = {
-
-    val fiber = new IOFiber(
-      timer,
-      (oc: Outcome[IO, Throwable, A]) => oc.fold(
-        (),
-        e => cb(Left(e)),
-        ioa => cb(Right(ioa.asInstanceOf[IO.Pure[A]].value))),
-      0)
-
-    if (shift)
-      ec.execute(() => fiber.run(this, ec, 0))
-    else
-      fiber.run(this, ec, 0)
-
-    fiber
-  }
 }
 
 private[effect] trait IOLowPriorityImplicits {

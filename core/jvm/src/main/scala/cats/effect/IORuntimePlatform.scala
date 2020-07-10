@@ -21,17 +21,19 @@ import scala.concurrent.duration._
 
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 
-private[effect] abstract class IOPlatform[+A] { self: IO[A] =>
+private[effect] abstract class IORuntimePlatform { self: IORuntime =>
+  def compute: ExecutionContext
+  def timer: UnsafeTimer
 
-  final def unsafeRunSync(ec: ExecutionContext, timer: UnsafeTimer): A =
-    unsafeRunTimed(Long.MaxValue.nanos, ec, timer).get
+  final def unsafeRunSync[A](ioa: IO[A]): A =
+    unsafeRunTimed(ioa, Long.MaxValue.nanos).get
 
-  final def unsafeRunTimed(limit: FiniteDuration, ec: ExecutionContext, timer: UnsafeTimer): Option[A] = {
+  final def unsafeRunTimed[A](ioa: IO[A], limit: FiniteDuration): Option[A] = {
     @volatile
     var results: Either[Throwable, A] = null
     val latch = new CountDownLatch(1)
 
-    unsafeRunFiber(ec, timer, false) { e =>
+    unsafeRunFiber(ioa, false) { e =>
       results = e
       latch.countDown()
     }

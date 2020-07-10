@@ -75,7 +75,8 @@ abstract class IOPlatformSpecification extends Specification {
       val latch = new CountDownLatch(1)
 
       // this test is weird because we're making our own contexts, so we can't use TestContext at all
-      test.unsafeRunAsync(ExecutionContext.fromExecutor(exec3), UnsafeTimer.fromScheduledExecutor(Executors.newScheduledThreadPool(1))) { e =>
+      val runtime = IORuntime(ExecutionContext.fromExecutor(exec3), UnsafeTimer.fromScheduledExecutor(Executors.newScheduledThreadPool(1)))
+      runtime.unsafeRunAsync(test) { e =>
         result = e
         latch.countDown()
       }
@@ -173,7 +174,7 @@ abstract class IOPlatformSpecification extends Specification {
     val timer = UnsafeTimer.fromScheduledExecutor(scheduler)
 
     try {
-      ioa.unsafeRunTimed(10.seconds, ctx, timer)
+      IORuntime(ctx, timer).unsafeRunTimed(ioa, 10.seconds)
     } finally {
       executor.shutdown()
       scheduler.shutdown()
