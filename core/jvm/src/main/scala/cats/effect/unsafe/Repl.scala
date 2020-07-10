@@ -15,6 +15,7 @@
  */
 
 package cats.effect
+package unsafe
 
 object Repl {
   implicit class Yolo[A](private val self: IO[A]) extends AnyVal {
