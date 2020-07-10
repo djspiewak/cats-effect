@@ -16,6 +16,24 @@
 
 package cats.effect
 
-private[effect] abstract class IOPlatform[+A] { self: IO[A] =>
-}
+import scala.scalajs.js.{|, defined, JavaScriptException, Promise, Thenable}
 
+private[effect] abstract class IOCompanionPlatform { self: IO.type =>
+
+  def fromPromise[A](iop: IO[Promise[A]]): IO[A] =
+    iop flatMap { p =>
+      IO.async_[A] { cb =>
+        p.`then`[Unit](
+          (v: A) => cb(Right(v)): Unit | Thenable[Unit],
+
+          defined { (a: Any) =>
+            val e = a match {
+              case th: Throwable => th
+              case _ => JavaScriptException(a)
+            }
+
+            cb(Left(e)): Unit | Thenable[Unit]
+          })
+      }
+    }
+}

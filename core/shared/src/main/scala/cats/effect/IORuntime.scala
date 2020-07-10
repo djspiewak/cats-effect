@@ -16,7 +16,7 @@
 
 package cats.effect
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future, Promise}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.Executors
 
@@ -50,6 +50,17 @@ final class IORuntime private (
       fiber.run(ioa, compute, 0)
 
     fiber
+  }
+
+  def unsafeToFuture[A](ioa: IO[A]): Future[A] = {
+    val p = Promise[A]()
+
+    unsafeRunAsync(ioa) {
+      case Left(t) => p.failure(t)
+      case Right(a) => p.success(a)
+    }
+
+    p.future
   }
 }
 

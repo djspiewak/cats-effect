@@ -16,11 +16,11 @@
 
 package cats.effect
 
-import cats.{~>, Monoid, /*Parallel,*/ Semigroup, StackSafeMonad}
+import cats.{~>, Monoid, /*Parallel,*/ Semigroup, Show, StackSafeMonad}
 import cats.implicits._
 
 import scala.annotation.unchecked.uncheckedVariance
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 sealed abstract class IO[+A] private () extends IOPlatform[A] {
@@ -170,9 +170,17 @@ sealed abstract class IO[+A] private () extends IOPlatform[A] {
 
   def uncancelable: IO[A] =
     IO.uncancelable(_ => this)
+
+  def void: IO[Unit] =
+    map(_ => ())
+
+  override def toString: String = "IO(...)"
 }
 
 private[effect] trait IOLowPriorityImplicits {
+
+  implicit def showForIONoPure[A]: Show[IO[A]] =
+    Show.show(_ => "IO(...)")
 
   implicit def semigroupForIO[A: Semigroup]: Semigroup[IO[A]] =
     new IOSemigroup[A]
@@ -183,15 +191,11 @@ private[effect] trait IOLowPriorityImplicits {
   }
 }
 
-object IO extends IOLowPriorityImplicits {
+object IO extends IOCompanionPlatform with IOLowPriorityImplicits {
 
-  def pure[A](value: A): IO[A] = Pure(value)
-
-  val unit: IO[Unit] = pure(())
+  // constructors
 
   def apply[A](thunk: => A): IO[A] = Delay(() => thunk)
-
-  def raiseError[A](t: Throwable): IO[A] = Error(t)
 
   def async[A](k: (Either[Throwable, A] => Unit) => IO[Option[IO[Unit]]]): IO[A] = Async(k)
 
@@ -202,34 +206,59 @@ object IO extends IOLowPriorityImplicits {
 
   val cede: IO[Unit] = Cede
 
-  def uncancelable[A](body: IO ~> IO => IO[A]): IO[A] =
-    Uncancelable(body)
-
   val executionContext: IO[ExecutionContext] = ReadEC
+
+  val monotonic: IO[FiniteDuration] = Monotonic
 
   private[this] val _never: IO[Nothing] = async(_ => pure(None))
   def never[A]: IO[A] = _never
 
-  val monotonic: IO[FiniteDuration] = Monotonic
+  def pure[A](value: A): IO[A] = Pure(value)
+
+  def raiseError[A](t: Throwable): IO[A] = Error(t)
 
   val realTime: IO[FiniteDuration] = RealTime
 
   def sleep(delay: FiniteDuration): IO[Unit] =
     Sleep(delay)
 
+  def uncancelable[A](body: IO ~> IO => IO[A]): IO[A] =
+    Uncancelable(body)
+
+  val unit: IO[Unit] = pure(())
+
+  // utilities
+
+  def both[A, B](left: IO[A], right: IO[B]): IO[(A, B)] =
+    left.both(right)
+
+  def fromFuture[A](fut: IO[Future[A]]): IO[A] =
+    fut flatMap { f =>
+      executionContext flatMap { implicit ec =>
+        async_[A] { cb =>
+          f.onComplete(t => cb(t.toEither))
+        }
+      }
+    }
+
+  def race[A, B](left: IO[A], right: IO[B]): IO[Either[A, B]] =
+    left.race(right)
+
+  def racePair[A, B](left: IO[A], right: IO[B]): IO[Either[(A, Fiber[IO, Throwable, B]), (Fiber[IO, Throwable, A], B)]] =
+    left.racePair(right)
+
   def toK[F[_]: Effect]: IO ~> F =
     new (IO ~> F) {
       def apply[A](ioa: IO[A]) = ioa.to[F]
     }
 
-  def racePair[A, B](left: IO[A], right: IO[B]): IO[Either[(A, Fiber[IO, Throwable, B]), (Fiber[IO, Throwable, A], B)]] =
-    left.racePair(right)
+  // instances
 
-  def race[A, B](left: IO[A], right: IO[B]): IO[Either[A, B]] =
-    left.race(right)
-
-  def both[A, B](left: IO[A], right: IO[B]): IO[(A, B)] =
-    left.both(right)
+  implicit def showForIO[A: Show]: Show[IO[A]] =
+    Show show {
+      case Pure(a) => s"IO(${a.show})"
+      case _ => "IO(...)"
+    }
 
   implicit def monoidForIO[A: Monoid]: Monoid[IO[A]] =
     new IOMonoid[A]
@@ -309,7 +338,13 @@ object IO extends IOLowPriorityImplicits {
     def delay[A](thunk: => A): IO[A] = IO(thunk)
   }
 
-  private[effect] final case class Pure[+A](value: A) extends IO[A] { def tag = 0 }
+  // implementations
+
+  private[effect] final case class Pure[+A](value: A) extends IO[A] {
+    def tag = 0
+    override def toString: String = s"IO($value)"
+  }
+
   private[effect] final case class Delay[+A](thunk: () => A) extends IO[A] { def tag = 1 }
   private[effect] final case class Error(t: Throwable) extends IO[Nothing] { def tag = 2 }
   private[effect] final case class Async[+A](k: (Either[Throwable, A] => Unit) => IO[Option[IO[Unit]]]) extends IO[A] { def tag = 3 }

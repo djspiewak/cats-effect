@@ -19,7 +19,7 @@ package cats.effect
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent.{CountDownLatch, CompletableFuture, TimeUnit}
 
 private[effect] abstract class IORuntimePlatform { self: IORuntime =>
   protected def compute: ExecutionContext
@@ -45,5 +45,16 @@ private[effect] abstract class IORuntimePlatform { self: IORuntime =>
     } else {
       None
     }
+  }
+
+  final def unsafeToCompletableFuture[A](ioa: IO[A]): CompletableFuture[A] = {
+    val cf = new CompletableFuture[A]()
+
+    unsafeRunAsync(ioa) {
+      case Left(t) => cf.completeExceptionally(t)
+      case Right(a) => cf.complete(a)
+    }
+
+    cf
   }
 }

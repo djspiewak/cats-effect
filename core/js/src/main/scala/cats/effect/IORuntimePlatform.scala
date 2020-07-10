@@ -16,5 +16,22 @@
 
 package cats.effect
 
+import scala.concurrent.ExecutionContext
+import scala.scalajs.js.{|, Function1, JavaScriptException, Promise, Thenable}
+
 private[effect] abstract class IORuntimePlatform { self: IORuntime =>
+
+  def unsafeToPromise[A](ioa: IO[A]): Promise[A] =
+    new Promise[A]({ (resolve: Function1[A | Thenable[A], _], reject: Function1[Any, _]) =>
+      unsafeRunAsync(ioa) {
+        case Left(JavaScriptException(e)) =>
+          reject(e)
+
+        case Left(e) =>
+          reject(e)
+
+        case Right(value) =>
+          resolve(value)
+      }
+    })
 }
