@@ -31,6 +31,7 @@ import org.scalacheck.{Arbitrary, Cogen, Gen, Prop}
 import org.specs2.ScalaCheck
 // import org.specs2.scalacheck.Parameters
 import org.specs2.matcher.Matcher
+import org.specs2.mutable.Specification
 
 import org.typelevel.discipline.specs2.mutable.Discipline
 
@@ -39,7 +40,7 @@ import scala.concurrent.duration._
 
 import java.util.concurrent.TimeUnit
 
-class RefSpec extends IOPlatformSpecification with Discipline with ScalaCheck with BaseSpec { outer =>
+class RefSpec extends Specification with Discipline with ScalaCheck with BaseSpec { outer =>
 
   import OutcomeGenerators._
 
