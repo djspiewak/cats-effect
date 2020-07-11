@@ -156,7 +156,6 @@ trait BaseSpec extends Specification { outer =>
         case Left(t) => results = Outcome.Errored(t)
         case Right(a) => results = Outcome.Completed(Some(a))
       }(unsafe.IORuntime(ctx, scheduler(), () => ()))
-
       ctx.tickAll(3.days)
 
       /*println("====================================")
