@@ -66,36 +66,36 @@ class DeferredSpec extends IOPlatformSpecification with Discipline with ScalaChe
       cancelBeforeForcing(Deferred.apply) must completeAs(None)
     }
 
-    //TODO why does this block?
-    // "issue #380: complete doesn't block, test #1" in {
-    //   def execute(times: Int): IO[Boolean] = {
-    //     def foreverAsync(i: Int): IO[Unit] =
-    //       if (i == 512) IO.async[Unit] { cb =>
-    //         cb(Right(()))
-    //         IO.pure(None)
-    //       } >> foreverAsync(0)
-    //       else IO.unit >> foreverAsync(i + 1)
+    "issue #380: complete doesn't block, test #1" in {
+      def execute(times: Int): IO[Boolean] = {
+        def foreverAsync(i: Int): IO[Unit] =
+          if (i == 512) IO.async[Unit] { cb =>
+            cb(Right(()))
+            IO.pure(None)
+          } >> foreverAsync(0)
+          else IO.unit >> foreverAsync(i + 1)
 
-    //     val task = for {
-    //       d <- Deferred[IO, Unit]
-    //       latch <- Deferred[IO, Unit]
-    //       fb <- (latch.complete(()) *> d.get *> foreverAsync(0)).start
-    //       _ <- latch.get
-    //       _ <- timeout(d.complete(()), 15.seconds).guarantee(fb.cancel)
-    //     } yield {
-    //       true
-    //     }
+        val task = for {
+          d <- Deferred[IO, Unit]
+          latch <- Deferred[IO, Unit]
+          fb <- (latch.complete(()) *> d.get *> foreverAsync(0)).start
+          _ <- latch.get
+          _ <- timeout(d.complete(()), 15.seconds).guarantee(fb.cancel)
+        } yield {
+          true
+        }
 
-    //     task.flatMap { r =>
-    //       if (times > 0) execute(times - 1)
-    //       else IO.pure(r)
-    //     }
-    //   }
+        task.flatMap { r =>
+          if (times > 0) execute(times - 1)
+          else IO.pure(r)
+        }
+      }
 
-    //   execute(100) must completeAs(true)
-    // }
+      execute(100) must completeAs(true)
+    }
 
-    //TODO why does this block?
+  //TODO why does this block?
+
   // "issue #380: complete doesn't block, test #2" in {
   //   def execute(times: Int): IO[Boolean] = {
   //     val task = for {
