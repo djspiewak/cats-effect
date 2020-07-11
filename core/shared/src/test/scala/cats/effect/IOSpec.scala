@@ -450,7 +450,7 @@ class IOSpec extends IOPlatformSpecification with Discipline with ScalaCheck wit
   {
     checkAll(
       "IO",
-      EffectTests[IO].effect[Int, Int, Int](10.millis))/*(Parameters(seed = Some(Seed.fromBase64("XidlR_tu11X7_v51XojzZJsm6EaeU99RAEL9vzbkWBD=").get)))*/
+      EffectTests[IO].effect[Int, Int, Int](10.millis))/*(Parameters(seed = Some(Seed.fromBase64("AXGTvPCHsWBtlpV0UlzKpDLXLuA2NoOC1wt-N55kIFC=").get)))*/
 
     checkAll(
       "IO[Int]",

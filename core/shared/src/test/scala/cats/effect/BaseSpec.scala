@@ -172,7 +172,7 @@ trait BaseSpec extends Specification { outer =>
         case Right(a) => results = Outcome.Completed(Some(a))
       }(unsafe.IORuntime(ctx, scheduler(), () => ()))
 
-      ctx.tick(3.days)    // longer than the maximum generator value of 48 hours
+      ctx.tickAll(3.days)    // longer than the maximum generator value of 48 hours
 
       /*println("====================================")
       println(s"completed ioa with $results")
