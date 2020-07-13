@@ -18,8 +18,6 @@ package cats.effect
 
 import cats.implicits._
 import cats.{Eq, Order, Show}
-import cats.kernel.laws.discipline.MonoidTests
-import cats.effect.laws.EffectTests
 import cats.effect.testkit.{AsyncGenerators, BracketGenerators, GenK, OutcomeGenerators, TestContext}
 
 import org.scalacheck.{Arbitrary, Cogen, Gen, Prop}
