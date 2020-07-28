@@ -16,13 +16,9 @@
 
 package cats.effect
 
-import scala.concurrent.ExecutionContext
-
 private[effect] abstract class IOFiberPlatform[A] { this: IOFiber[A] =>
 
   // in theory this code should never be hit due to the override in IOCompanionPlatform
-  def interruptibleImpl(cur: IO.Blocking[Any], blockingEc: ExecutionContext): IO[Any] = {
-    val _ = blockingEc
+  def interruptibleImpl(cur: IO.Blocking[Any]): IO[Any] =
     IO(cur.thunk())
-  }
 }
