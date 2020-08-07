@@ -96,6 +96,7 @@ private final class IOFiber[A](
 
   @volatile
   private[this] var outcome: OutcomeIO[A] = _
+  private[this] var ranCancelation = false
 
   private[this] val childCount = IOFiber.childCount
 
@@ -246,6 +247,7 @@ private final class IOFiber[A](
   }
 
   private[this] def asyncCancel(cb: Either[Throwable, Unit] => Unit): Unit = {
+    ranCancelation = true
     //       println(s"<$name> running cancelation (finalizers.length = ${finalizers.unsafeIndex()})")
     if (!finalizers.isEmpty()) {
       objectState.push(cb)
@@ -355,7 +357,17 @@ private final class IOFiber[A](
                   if (old == AsyncStateRegisteredWithFinalizer) {
                     // we completed and were not canceled, so we pop the finalizer
                     // note that we're safe to do so since we own the runloop
-                    finalizers.pop()
+                    try {
+                      finalizers.pop()
+                    } catch {
+                      case t: ArrayIndexOutOfBoundsException =>
+                        println(s"<$name> canceled = $canceled")
+                        println(s"<$name> masks = $masks")
+                        println(s"<$name> initMask = $initMask")
+                        println(s"<$name> outcome = $outcome")
+                        println(s"<$name> ranCancelation = $ranCancelation")
+                        throw t
+                    }
                   }
 
                   asyncContinue(state, e)
@@ -806,7 +818,6 @@ private final class IOFiber[A](
 
   private[this] def cancelationLoopFailureK(t: Throwable): IO[Any] = {
     currentCtx.reportFailure(t)
-
     cancelationLoopSuccessK()
   }
 

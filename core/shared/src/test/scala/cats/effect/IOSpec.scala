@@ -617,6 +617,41 @@ class IOSpec extends IOPlatformSpecification with Discipline with ScalaCheck wit
       test should nonTerminate
     }
 
+    "ensure async callback is suppressed during suspension of finalizers" in ticked { implicit ticker =>
+      var cb: Either[Throwable, Unit] => Unit = null
+
+      val subject = IO.async[Unit] { cb0 =>
+        IO {
+          cb = cb0
+
+          Some(IO.never)
+        }
+      }
+
+      val test = for {
+        f <- subject.start
+        _ <- IO(ticker.ctx.tickAll())   // schedule everything
+        _ <- f.cancel.start
+        _ <- IO(ticker.ctx.tickAll())   // get inside the finalizer suspension
+        _ <- IO(cb(Right(())))
+        _ <- IO(ticker.ctx.tickAll())   // show that the finalizer didn't explode
+      } yield ()
+
+      test must nonTerminate    // ...but not throw an exception
+    }
+
+    "do racePair things" in real {
+      val test = (0 until 10).foldLeft(IO.never[Int])((acc, _) =>
+        IO.racePair(acc, IO(1)).flatMap {
+          case Left((_, fiber)) =>
+            fiber.cancel.as(0)
+          case Right((fiber, _)) =>
+            fiber.cancel.as(0)
+        })
+
+      test.as(ok)
+    }
+
     "temporal" should {
       "timeout" should {
         "succeed" in real {
