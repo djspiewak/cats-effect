@@ -40,7 +40,6 @@ ThisBuild / scmInfo := Some(
   ScmInfo(url("https://github.com/typelevel/cats-effect"), "git@github.com:typelevel/cats-effect.git")
 )
 
-val SimulacrumVersion = "1.0.0"
 val CatsVersion = "2.2.0-RC2"
 val DisciplineScalatestVersion = "2.0.0"
 val SilencerVersion = "1.7.1"
@@ -56,14 +55,6 @@ replaceCommandAlias(
 )
 
 val commonSettings = Seq(
-  scalacOptions ++= PartialFunction
-    .condOpt(CrossVersion.partialVersion(scalaVersion.value)) {
-      case Some((2, n)) if n >= 13 =>
-        // Necessary for simulacrum
-        Seq("-Ymacro-annotations")
-    }
-    .toList
-    .flatten,
   scalacOptions in (Compile, doc) ++= {
     val isSnapshot = git.gitCurrentTags.value.map(git.gitTagToVersionNumber.value).flatten.isEmpty
 
@@ -211,7 +202,6 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
     name := "cats-effect",
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % CatsVersion,
-      "org.typelevel" %%% "simulacrum" % SimulacrumVersion % "provided",
       "org.typelevel" %%% "cats-laws" % CatsVersion % Test,
       "org.typelevel" %%% "discipline-scalatest" % DisciplineScalatestVersion % Test
     ),
@@ -219,19 +209,7 @@ lazy val core = crossProject(JSPlatform, JVMPlatform)
       compilerPlugin(("com.github.ghik" % "silencer-plugin" % SilencerVersion).cross(CrossVersion.full)),
       ("com.github.ghik" % "silencer-lib" % SilencerVersion % "provided").cross(CrossVersion.full),
       ("com.github.ghik" % "silencer-lib" % SilencerVersion % Test).cross(CrossVersion.full)
-    ),
-    libraryDependencies ++= {
-      CrossVersion.partialVersion(scalaVersion.value) match {
-        case Some((2, v)) if v <= 12 =>
-          Seq(
-            compilerPlugin(("org.scalamacros" % "paradise" % "2.1.1").cross(CrossVersion.full))
-          )
-        case _ =>
-          // if scala 2.13.0-M4 or later, macro annotations merged into scala-reflect
-          // https://github.com/scala/scala/pull/6606
-          Nil
-      }
-    }
+    )
   )
   .jvmSettings(mimaSettings)
   .jsSettings(scalaJSSettings)
