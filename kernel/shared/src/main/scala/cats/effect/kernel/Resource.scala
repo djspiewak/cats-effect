@@ -279,7 +279,7 @@ sealed abstract class Resource[F[_], +A] {
         release => storeFinalizer(MonadCancel[F, Throwable].guarantee(_, release))
       )
 
-    val bothFinalizers = Ref.of(().pure[F] -> ().pure[F])
+    val bothFinalizers = Ref.of[F, (F[Unit], F[Unit])](().pure[F] -> ().pure[F])
 
     Resource.make(bothFinalizers)(_.get.flatMap(_.parTupled).void).evalMap { store =>
       val leftStore: Update = f => store.update(_.leftMap(f))
