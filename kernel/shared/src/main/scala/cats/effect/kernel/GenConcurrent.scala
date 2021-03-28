@@ -113,11 +113,13 @@ trait GenConcurrent[F[_], E] extends GenSpawn[F, E] {
         back <- onCancel(
           poll(result.get),
           for {
-            canA <- start(fibA.cancel)
+            // canA <- start(fibA.cancel)
             canB <- start(fibB.cancel)
 
-            _ <- canA.join
-            _ <- canB.join
+            _ <- GenConcurrent.writeCancelee[F](fibA)
+            _ <- fibA.cancel
+            _ <- GenConcurrent.writeCancelee[F](null)
+            // _ <- canB.join
           } yield ())
       } yield back match {
         case Left(oc) => Left((oc, fibB))
@@ -128,6 +130,10 @@ trait GenConcurrent[F[_], E] extends GenSpawn[F, E] {
 }
 
 object GenConcurrent {
+  private val cancelee = new java.util.concurrent.atomic.AtomicReference[AnyRef]
+  private def writeCancelee[F[_]: cats.Applicative](ar: AnyRef): F[Unit] =
+    cats.Applicative[F].unit.map(_ => cancelee.set(ar))
+
   def apply[F[_], E](implicit F: GenConcurrent[F, E]): F.type = F
   def apply[F[_]](implicit F: GenConcurrent[F, _], d: DummyImplicit): F.type = F
 
