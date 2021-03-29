@@ -15,9 +15,9 @@ primitives necessary to implement arbitrarily complicated concurrent state machi
 <span class="hljs-comment">// action: IO[String] = Map(</span>
 <span class="hljs-comment">//   ioe = Blocking(</span>
 <span class="hljs-comment">//     hint = Blocking,</span>
-<span class="hljs-comment">//     thunk = cats.effect.std.Console$SyncConsole$$Lambda$11495/387962564@334fc34c</span>
+<span class="hljs-comment">//     thunk = cats.effect.std.Console$SyncConsole$$Lambda$10735/2089105964@2e245551</span>
 <span class="hljs-comment">//   ),</span>
-<span class="hljs-comment">//   f = cats.effect.IO$$Lambda$11506/255845722@4ba809dc</span>
+<span class="hljs-comment">//   f = cats.effect.IO$$Lambda$10746/797178219@12a8dc6d</span>
 <span class="hljs-comment">// )</span>
 
 <span class="hljs-keyword">val</span> x: <span class="hljs-type">IO</span>[<span class="hljs-type">String</span>] = <span class="hljs-keyword">for</span> {
@@ -27,8 +27,8 @@ primitives necessary to implement arbitrarily complicated concurrent state machi
 } <span class="hljs-keyword">yield</span> res1 ++ res2
 <span class="hljs-comment">// x: IO[String] = FlatMap(</span>
 <span class="hljs-comment">//   ioe = Map(</span>
-<span class="hljs-comment">//     ioe = Delay(thunk = cats.effect.IO$$$Lambda$11479/1981190598@21d24c73),</span>
-<span class="hljs-comment">//     f = cats.effect.kernel.GenConcurrent$$Lambda$12104/1812108218@44db204d</span>
+<span class="hljs-comment">//     ioe = Delay(thunk = cats.effect.IO$$$Lambda$10719/756822978@5dde0f6e),</span>
+<span class="hljs-comment">//     f = cats.effect.kernel.GenConcurrent$$Lambda$11344/148278484@2ebb8e16</span>
 <span class="hljs-comment">//   ),</span>
 <span class="hljs-comment">//   f = &lt;function1&gt;</span>
 <span class="hljs-comment">// )</span>
