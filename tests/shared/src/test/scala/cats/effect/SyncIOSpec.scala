@@ -24,6 +24,7 @@ import cats.laws.discipline.arbitrary._
 import cats.syntax.all._
 
 import org.scalacheck.Prop.forAll
+import org.scalacheck.rng.Seed
 import org.typelevel.discipline.specs2.mutable.Discipline
 
 class SyncIOSpec extends BaseSpec with Discipline with SyncIOPlatformSpecification {
@@ -223,7 +224,9 @@ class SyncIOSpec extends BaseSpec with Discipline with SyncIOPlatformSpecificati
     }
 
     "serialize" in {
-      forAll { (io: SyncIO[Int]) => serializable(io) }
+      forAll((io: SyncIO[Int]) => serializable(io)).useSeed(
+        "le-broken",
+        Seed.fromBase64("HpHWbu3FaorBeofwK5D4qT4tdJOJa9fTKLaQxh3zhwG=").toOption.get)
     }
   }
 
