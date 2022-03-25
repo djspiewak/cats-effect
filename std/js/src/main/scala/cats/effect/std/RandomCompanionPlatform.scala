@@ -14,24 +14,6 @@
  * limitations under the License.
  */
 
-package cats.effect.unsafe
+package cats.effect.std
 
-import scala.concurrent.duration.FiniteDuration
-
-trait Scheduler {
-
-  /**
-   * Schedules a side-effect to run after the delay interval. Produces another side-effect which
-   * cancels the scheduling.
-   */
-  def sleep(delay: FiniteDuration, task: Runnable): Runnable
-
-  def nowMillis(): Long
-
-  def nowMicros(): Long =
-    nowMillis() * 1000
-
-  def monotonicNanos(): Long
-}
-
-object Scheduler extends SchedulerCompanionPlatform
+private[std] trait RandomCompanionPlatform

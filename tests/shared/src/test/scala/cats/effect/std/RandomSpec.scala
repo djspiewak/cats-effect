@@ -14,24 +14,20 @@
  * limitations under the License.
  */
 
-package cats.effect.unsafe
+package cats.effect
+package std
 
-import scala.concurrent.duration.FiniteDuration
+class RandomSpec extends BaseSpec {
 
-trait Scheduler {
+  "Random" should {
+    "securely generate random bytes" in real {
+      for {
+        random1 <- Random.javaSecuritySecureRandom[IO]
+        bytes1 <- random1.nextBytes(128)
+        random2 <- Random.javaSecuritySecureRandom[IO](2)
+        bytes2 <- random2.nextBytes(256)
+      } yield bytes1.length == 128 && bytes2.length == 256
+    }
+  }
 
-  /**
-   * Schedules a side-effect to run after the delay interval. Produces another side-effect which
-   * cancels the scheduling.
-   */
-  def sleep(delay: FiniteDuration, task: Runnable): Runnable
-
-  def nowMillis(): Long
-
-  def nowMicros(): Long =
-    nowMillis() * 1000
-
-  def monotonicNanos(): Long
 }
-
-object Scheduler extends SchedulerCompanionPlatform
