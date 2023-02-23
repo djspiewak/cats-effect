@@ -19,29 +19,28 @@ package unsafe
 
 import java.util.concurrent.locks.LockSupport
 
-object SleepSystem extends PollingSystem {
+object SleepSystem extends PollingSystem[Poller] {
 
-  final class GlobalPollingState private[SleepSystem] ()
-  final class Poller private[SleepSystem] ()
-
-  def makeGlobalPollingState(register: (Poller => Unit) => Unit): GlobalPollingState =
-    new GlobalPollingState
-
-  def makePoller(): Poller = new Poller
-
-  def closePoller(Poller: Poller): Unit = ()
-
-  def poll(poller: Poller, nanos: Long, reportFailure: Throwable => Unit): Boolean = {
-    if (nanos < 0)
-      LockSupport.park()
-    else if (nanos > 0)
-      LockSupport.parkNanos(nanos)
-    else
-      ()
-    false
+  def buildRuntime(): PollingRuntime[Poller] = new PollingRuntime[Poller] {
+    def buildPoller(reportFailure: Throwable => Unit) = Poller
   }
 
-  def interrupt(targetThread: Thread, targetPoller: Poller): Unit =
-    LockSupport.unpark(targetThread)
+  private[this] object Poller extends Poller {
 
+    def poll(nanos: Long): Boolean = {
+      if (nanos < 0)
+        LockSupport.park()
+      else if (nanos > 0)
+        LockSupport.parkNanos(nanos)
+      else
+        ()
+
+      false
+    }
+
+    def interrupt(targetThread: Thread): Unit =
+      LockSupport.unpark(targetThread)
+
+    def close() = ()
+  }
 }

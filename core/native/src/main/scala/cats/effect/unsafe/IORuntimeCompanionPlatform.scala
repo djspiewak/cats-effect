@@ -24,7 +24,7 @@ private[unsafe] abstract class IORuntimeCompanionPlatform { this: IORuntime.type
 
   def defaultScheduler: Scheduler = EventLoopExecutorScheduler.global
 
-  def createEventLoop(system: PollingSystem): ExecutionContext with Scheduler =
+  def createEventLoop[P <: Poller](system: PollingSystem[P]): RuntimeContext[P] with Scheduler =
     new EventLoopExecutorScheduler(64, system)
 
   private[this] var _global: IORuntime = null

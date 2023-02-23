@@ -173,7 +173,7 @@ trait IOApp {
    * [[unsafe.PollingSystem]] implementors may provide their own flavors of [[IOApp]] that
    * override this method.
    */
-  protected def pollingSystem: unsafe.PollingSystem =
+  protected def pollingSystem: unsafe.PollingSystem[unsafe.Poller] =
     if (LinktimeInfo.isLinux)
       unsafe.EpollSystem
     else if (LinktimeInfo.isMac)

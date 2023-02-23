@@ -15,18 +15,22 @@
  */
 
 package cats.effect
+package unsafe
 
-trait FileDescriptorPoller {
+import cats.effect.std.Semaphore
+
+trait FileDescriptorPoller extends Poller {
 
   /**
    * Registers a file descriptor with the poller and monitors read- and/or write-ready events.
    */
   def registerFileDescriptor(
-      fileDescriptor: Int,
-      monitorReadReady: Boolean,
-      monitorWriteReady: Boolean
-  ): Resource[IO, FileDescriptorPollHandle]
-
+      fd: Int,
+      reads: Boolean,
+      writes: Boolean,
+      readS: Semaphore[IO],
+      writeS: Semaphore[IO])
+      : (FileDescriptorPollHandle, () => Unit)
 }
 
 trait FileDescriptorPollHandle {

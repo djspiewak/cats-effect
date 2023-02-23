@@ -24,7 +24,7 @@ package metrics
  * @param queue
  *   the monitored local queue
  */
-private[unsafe] final class LocalQueueSampler(queue: LocalQueue)
+private[unsafe] final class LocalQueueSampler(queue: LocalQueue[_])
     extends LocalQueueSamplerMBean {
   def getFiberCount(): Int = queue.getFiberCount()
   def getHeadIndex(): Int = queue.getHeadIndex()

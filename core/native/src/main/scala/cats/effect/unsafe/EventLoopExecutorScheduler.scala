@@ -26,13 +26,13 @@ import scala.util.control.NonFatal
 
 import java.util.{ArrayDeque, PriorityQueue}
 
-private[effect] final class EventLoopExecutorScheduler(pollEvery: Int, system: PollingSystem)
+private[effect] final class EventLoopExecutorScheduler[+P <: Poller](pollEvery: Int, system: PollingSystem[P])
     extends ExecutionContextExecutor
-    with Scheduler {
+    with Scheduler
+    with RuntimeContext[P] {
 
-  private[this] val poller = system.makePoller()
-
-  val globalPollingState: Any = system.makeGlobalPollingState(cb => cb(poller))
+  private[this] val runtime = system.buildRuntime()
+  private[this] val poller = runtime.buildPoller(reportFailure(_))
 
   private[this] var needsReschedule: Boolean = true
 
@@ -45,6 +45,8 @@ private[effect] final class EventLoopExecutorScheduler(pollEvery: Int, system: P
     ExecutionContext.global.execute(() => loop())
     needsReschedule = false
   }
+
+  final def register(cb: P => Unit): Unit = cb(poller)
 
   final def execute(runnable: Runnable): Unit = {
     scheduleIfNeeded()
@@ -119,7 +121,7 @@ private[effect] final class EventLoopExecutorScheduler(pollEvery: Int, system: P
         else
           -1
 
-      val needsPoll = system.poll(poller, timeout, reportFailure)
+      val needsPoll = poller.poll(timeout)
 
       continue = needsPoll || !executeQueue.isEmpty() || !sleepQueue.isEmpty()
     }

@@ -17,37 +17,6 @@
 package cats.effect
 package unsafe
 
-abstract class PollingSystem {
-
-  /**
-   * The user-facing interface.
-   */
-  type GlobalPollingState <: AnyRef
-
-  /**
-   * The thread-local data structure used for polling.
-   */
-  type Poller <: AnyRef
-
-  def makeGlobalPollingState(register: (Poller => Unit) => Unit): GlobalPollingState
-
-  def makePoller(): Poller
-
-  def closePoller(poller: Poller): Unit
-
-  /**
-   * @param nanos
-   *   the maximum duration for which to block, where `nanos == -1` indicates to block
-   *   indefinitely. ''However'', if `nanos == -1` and there are no remaining events to poll
-   *   for, this method should return `false` immediately. This is unfortunate but necessary so
-   *   that the `EventLoop` can yield to the Scala Native global `ExecutionContext` which is
-   *   currently hard-coded into every test framework, including MUnit, specs2, and Weaver.
-   *
-   * @return
-   *   whether poll should be called again (i.e., there are more events to be polled)
-   */
-  def poll(poller: Poller, nanos: Long, reportFailure: Throwable => Unit): Boolean
-
-  def interrupt(targetThread: Thread, targetPoller: Poller): Unit
-
+abstract class PollingSystem[+P <: Poller] {
+  def buildRuntime(): PollingRuntime[P]
 }

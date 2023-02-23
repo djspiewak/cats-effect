@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 private[effect] sealed class FiberMonitor(
     // A reference to the compute pool of the `IORuntime` in which this suspended fiber bag
     // operates. `null` if the compute pool of the `IORuntime` is not a `WorkStealingThreadPool`.
-    private[this] val compute: WorkStealingThreadPool
+    private[this] val compute: WorkStealingThreadPool[Poller]
 ) extends FiberMonitorShared {
 
   private[this] final val Bags = FiberMonitor.Bags
@@ -64,8 +64,8 @@ private[effect] sealed class FiberMonitor(
    */
   def monitorSuspended(fiber: IOFiber[_]): WeakBag.Handle = {
     val thread = Thread.currentThread()
-    if (thread.isInstanceOf[WorkerThread]) {
-      val worker = thread.asInstanceOf[WorkerThread]
+    if (thread.isInstanceOf[WorkerThread[_]]) {
+      val worker = thread.asInstanceOf[WorkerThread[Poller]]
       // Guard against tracking errors when multiple work stealing thread pools exist.
       if (worker.isOwnedBy(compute)) {
         worker.monitor(fiber)
@@ -111,7 +111,7 @@ private[effect] sealed class FiberMonitor(
           val externalFibers = external.collect(justFibers)
           val suspendedFibers = suspended.collect(justFibers)
           val workersMapping: Map[
-            WorkerThread,
+            WorkerThread[_],
             (Thread.State, Option[(IOFiber[_], Trace)], Map[IOFiber[_], Trace])] =
             workers.map {
               case (thread, (state, opt, set)) =>
