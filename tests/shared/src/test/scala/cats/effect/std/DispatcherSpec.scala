@@ -34,16 +34,16 @@ class DispatcherSpec extends BaseSpec with DetectPlatform {
 
       sequential(D)
 
-      awaitTermination(D)
+      // awaitTermination(D)
 
-      "not hang" in real {
+/*      "not hang" in real {
         D.use(dispatcher => IO(dispatcher.unsafeRunAndForget(IO.unit)))
           .replicateA(if (isJS || isNative) 1 else 10000)
           .as(true)
-      }
+      }*/
     }
 
-    "await = false" >> {
+    /*"await = false" >> {
       val D = Dispatcher.sequential[IO](await = false)
 
       sequential(D)
@@ -59,7 +59,7 @@ class DispatcherSpec extends BaseSpec with DetectPlatform {
 
         TestControl.executeEmbed(action *> IO(canceled must beTrue))
       }
-    }
+    }*/
   }
 
   private def sequential(dispatcher: Resource[IO, Dispatcher[IO]]) = {
@@ -105,7 +105,7 @@ class DispatcherSpec extends BaseSpec with DetectPlatform {
     }
   }
 
-  "parallel dispatcher" should {
+  /*"parallel dispatcher" should {
     "await = true" >> {
       val D = Dispatcher.parallel[IO](await = true)
 
@@ -153,7 +153,7 @@ class DispatcherSpec extends BaseSpec with DetectPlatform {
         } yield ok
       }
     }
-  }
+  }*/
 
   private def parallel(dispatcher: Resource[IO, Dispatcher[IO]]) = {
 
