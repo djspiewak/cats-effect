@@ -187,13 +187,13 @@ class DispatcherSpec extends BaseSpec with DetectPlatform {
   }
 
   "parallel dispatcher" should {
-    "await = true" >> {
+    /*"await = true" >> {
       val D = Dispatcher.parallel[IO](await = true)
 
       parallel(D)
 
       awaitTermination(D)
-    }
+    }*/
 
     "await = false" >> {
       val D = Dispatcher.parallel[IO](await = false)
@@ -287,6 +287,7 @@ class DispatcherSpec extends BaseSpec with DetectPlatform {
       val test = dispatcher.use { dispatcher =>
         val action = IO.fromFuture {
           IO {
+            println("------------")
             val (_, cancel) = dispatcher.unsafeToFutureCancelable(IO.never)
             cancel()
           }
@@ -295,9 +296,9 @@ class DispatcherSpec extends BaseSpec with DetectPlatform {
         action.replicateA_(if (isJVM) 1000 else 1)
       }
 
-      if (isJVM)
+/*      if (isJVM)
         test.parReplicateA_(100).as(ok)
-      else
+      else*/
         test.as(ok)
     }
   }

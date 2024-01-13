@@ -318,26 +318,35 @@ object Dispatcher {
                       def cancel(): Future[Unit] = {
                         stateR.get() match {
                           case RegState.Unstarted =>
+                            println("unstarted")
                             val latch = Promise[Unit]()
 
                             reg.action = null.asInstanceOf[F[Unit]]
 
                             if (stateR.compareAndSet(
                                 RegState.Unstarted,
-                                RegState.CancelRequested(latch)))
+                                RegState.CancelRequested(latch))) {
                               latch.future
-                            else
+                            } else {
+                              println("looping cancel")
                               cancel()
+                            }
 
                           case r: RegState.Running[_] =>
+                            println("running")
                             val cancel = r.cancel // indirection needed for Scala 2.12
 
                             val latch = Promise[Unit]()
                             val _ = inner(cancel, latch, true)
                             latch.future
 
-                          case r: RegState.CancelRequested[_] => r.latch.future
-                          case RegState.Completed => Future.successful(())
+                          case r: RegState.CancelRequested[_] =>
+                            println("cancel requested")
+                            r.latch.future
+
+                          case RegState.Completed =>
+                            println("completed")
+                            Future.successful(())
                         }
                       }
 
@@ -391,50 +400,62 @@ object Dispatcher {
       val step = queue.take flatMap {
         case reg: Registration.Primary[F] =>
           Sync[F] defer {
+            println("got registration")
+
             reg.stateR.get() match {
               case RegState.Unstarted =>
                 val action = reg.action
 
                 if (action == null) {
+                  println("memory race")
                   // this corresponds to a memory race where we see action's write before stateR's
                   val check = Spawn[F].cede *> Sync[F].delay(reg.stateR.get())
                   check.iterateWhile(_ == RegState.Unstarted) *> Sync[F].delay {
+                    println("completed race")
                     reg.stateR.get() match {
                       case RegState.CancelRequested(latch) =>
                         latch.success(())
                         ()
 
-                      case s => throw new AssertionError(s"a => $s")
+                      case s =>
+                        println(s"wtf? $s")
+                        throw new AssertionError(s"a => $s")
                     }
                   }
                 } else {
-                  executor(
-                    action.guarantee(Sync[F].delay(reg.stateR.set(RegState.Completed)))) {
-                    cancelF =>
-                      Sync[F] defer {
-                        if (reg
-                            .stateR
-                            .compareAndSet(RegState.Unstarted, RegState.Running(cancelF))) {
-                          Applicative[F].unit
-                        } else {
-                          reg.stateR.get() match {
-                            case RegState.CancelRequested(latch) =>
-                              cancelF.guarantee(Sync[F].delay(latch.success(())).void)
+                  val withCompletion =
+                    action.guarantee(Sync[F].delay(reg.stateR.set(RegState.Completed)))
 
-                            case RegState.Completed =>
-                              Applicative[F].unit
+                  executor(withCompletion) { cancelF =>
+                    Sync[F] defer {
+                      if (reg
+                          .stateR
+                          .compareAndSet(RegState.Unstarted, RegState.Running(cancelF))) {
+                        println("successfully started and beat the cancel")
+                        Applicative[F].unit
+                      } else {
+                        println("didn't successfullys tart?")
+                        reg.stateR.get() match {
+                          case RegState.CancelRequested(latch) =>
+                            println("double-check race, canceled after start")
+                            cancelF.guarantee(Sync[F].delay(latch.success(())).void)
 
-                            case s => throw new AssertionError(s"b => $s")
-                          }
+                          case RegState.Completed =>
+                            Applicative[F].unit
+
+                          case s => throw new AssertionError(s"b => $s")
                         }
                       }
+                    }
                   }
                 }
 
               case s @ (RegState.Running(_) | RegState.Completed) =>
                 throw new AssertionError(s"c => $s")
 
-              case RegState.CancelRequested(latch) => Sync[F].delay(latch.success(())).void
+              case RegState.CancelRequested(latch) =>
+                println("got cancel requested in Worker")
+                Sync[F].delay(latch.success(())).void
             }
           }
 
