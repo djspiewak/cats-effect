@@ -69,7 +69,7 @@ object KqueueSystem extends PollingSystem {
 
   def interrupt(targetThread: Thread, targetPoller: Poller): Unit = ()
 
-  def metrics(poller: Poller): PollerMetrics = PollerMetrics.noop
+  def metrics(poller: Poller): PollerMetrics = poller.metrics()
 
   private final class FileDescriptorPollerImpl private[KqueueSystem] (
       ctx: PollingContext[Poller]
@@ -164,6 +164,74 @@ object KqueueSystem extends PollingSystem {
 
       changeCount += 1
     }
+
+    private var totalReadSubmitted = 0L
+    private var totalReadSucceeded = 0L
+    private var totalReadErrored = 0L
+    private var totalReadCanceled = 0L
+    private var readOutstanding = 0
+
+    private var totalWriteSubmitted = 0L
+    private var totalWriteSucceeded = 0L
+    private var totalWriteErrored = 0L
+    private var totalWriteCanceled = 0L
+    private var writeOutstanding = 0
+
+    private[this] val pollerMetrics = new PollerMetrics {
+      override def operationsOutstandingCount(): Int = readOutstanding + writeOutstanding
+
+      override def totalOperationsSubmittedCount(): Long =
+        totalReadSubmitted + totalWriteSubmitted
+
+      override def totalOperationsSucceededCount(): Long =
+        totalReadSucceeded + totalWriteSucceeded
+
+      override def totalOperationsErroredCount(): Long = totalReadErrored + totalWriteErrored
+
+      override def totalOperationsCanceledCount(): Long = totalReadCanceled + totalWriteCanceled
+
+      override def acceptOperationsOutstandingCount(): Int = 0
+
+      override def totalAcceptOperationsSubmittedCount(): Long = 0L
+
+      override def totalAcceptOperationsSucceededCount(): Long = 0L
+
+      override def totalAcceptOperationsErroredCount(): Long = 0L
+
+      override def totalAcceptOperationsCanceledCount(): Long = 0L
+
+      override def connectOperationsOutstandingCount(): Int = 0
+
+      override def totalConnectOperationsSubmittedCount(): Long = 0L
+
+      override def totalConnectOperationsSucceededCount(): Long = 0L
+
+      override def totalConnectOperationsErroredCount(): Long = 0L
+
+      override def totalConnectOperationsCanceledCount(): Long = 0L
+
+      override def readOperationsOutstandingCount(): Int = readOutstanding
+
+      override def totalReadOperationsSubmittedCount(): Long = totalReadSubmitted
+
+      override def totalReadOperationsSucceededCount(): Long = totalReadSucceeded
+
+      override def totalReadOperationsErroredCount(): Long = totalReadErrored
+
+      override def totalReadOperationsCanceledCount(): Long = totalReadCanceled
+
+      override def writeOperationsOutstandingCount(): Int = writeOutstanding
+
+      override def totalWriteOperationsSubmittedCount(): Long = totalWriteSubmitted
+
+      override def totalWriteOperationsSucceededCount(): Long = totalWriteSucceeded
+
+      override def totalWriteOperationsErroredCount(): Long = totalWriteErrored
+
+      override def totalWriteOperationsCanceledCount(): Long = totalWriteCanceled
+    }
+
+    private[KqueueSystem] def metrics(): PollerMetrics = pollerMetrics
 
     private[KqueueSystem] def removeCallback(ident: Int, filter: Short): Unit = {
       callbacks -= encodeKevent(ident, filter)
