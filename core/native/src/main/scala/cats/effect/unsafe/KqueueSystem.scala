@@ -161,6 +161,7 @@ object KqueueSystem extends PollingSystem {
       event.flags = (flags.toInt | EV_ONESHOT).toUShort
 
       callbacks.update(encodeKevent(ident, filter), cb)
+      incrementOperationCount(filter)
 
       changeCount += 1
     }
@@ -233,9 +234,45 @@ object KqueueSystem extends PollingSystem {
 
     private[KqueueSystem] def metrics(): PollerMetrics = pollerMetrics
 
+    private[this] def incrementOperationCount(filter: Short): Unit = {
+      if (filter == EVFILT_READ) {
+        totalReadSubmitted += 1
+        readOutstanding += 1
+      }
+
+      if (filter == EVFILT_WRITE) {
+        totalWriteSubmitted += 1
+        writeOutstanding += 1
+      }
+    }
+
+    private[this] def handleOperationCompletion(filter: Short, succeeded: Boolean): Unit = {
+      if (filter == EVFILT_READ) {
+        readOutstanding -= 1
+        if (succeeded) totalReadSucceeded += 1 else totalReadErrored += 1
+      }
+
+      if (filter == EVFILT_WRITE) {
+        writeOutstanding -= 1
+        if (succeeded) totalWriteSucceeded += 1 else totalWriteErrored += 1
+      }
+    }
+
+    private[this] def handleOperationCanceled(filter: Short): Unit = {
+      if (filter == EVFILT_READ) {
+        totalReadCanceled += 1
+        readOutstanding -= 1
+      }
+
+      if (filter == EVFILT_WRITE) {
+        totalWriteCanceled += 1
+        writeOutstanding -= 1
+      }
+    }
+
     private[KqueueSystem] def removeCallback(ident: Int, filter: Short): Unit = {
       callbacks -= encodeKevent(ident, filter)
-      ()
+      handleOperationCanceled(filter)
     }
 
     private[KqueueSystem] def close(): Unit =
@@ -286,12 +323,15 @@ object KqueueSystem extends PollingSystem {
         val cb = callbacks.getOrNull(kevent)
         callbacks -= kevent
 
-        if (cb ne null)
+        if (cb ne null) {
+          val succeeded = (event.flags.toLong & EV_ERROR) == 0
+          handleOperationCompletion(event.filter, succeeded)
           cb(
-            if ((event.flags.toLong & EV_ERROR) != 0)
+            if (succeeded) Either.unit
+            else
               Left(new IOException(fromCString(strerror(event.data.toInt))))
-            else Either.unit
           )
+        }
 
         i += 1
         event += 1
