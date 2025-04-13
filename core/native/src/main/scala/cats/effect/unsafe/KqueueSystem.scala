@@ -230,6 +230,7 @@ object KqueueSystem extends PollingSystem {
       override def totalWriteOperationsErroredCount(): Long = totalWriteErrored
 
       override def totalWriteOperationsCanceledCount(): Long = totalWriteCanceled
+      override def toString: String = "Kqueue"
     }
 
     private[KqueueSystem] def metrics(): PollerMetrics = pollerMetrics
