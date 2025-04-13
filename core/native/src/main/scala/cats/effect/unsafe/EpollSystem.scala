@@ -247,6 +247,7 @@ object EpollSystem extends PollingSystem {
 
       override def totalWriteOperationsCanceledCount(): Long = totalWriteCanceled
 
+      override def toString: String = "Epoll"
     }
 
     private[EpollSystem] def metrics(): PollerMetrics = pollerMetrics
