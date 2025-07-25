@@ -179,78 +179,51 @@ object EpollSystem extends PollingSystem {
 
   }
 
-  final class Poller private[EpollSystem] (epfd: Int) {
+  final class Poller private[EpollSystem] (epfd: Int) extends PollerMetrics {
 
-    private var totalReadSubmitted = 0L
-    private var totalReadSucceeded = 0L
-    private var totalReadErrored = 0L
-    private var totalReadCanceled = 0L
-    private var readOutstanding = 0
+    private[this] var totalReadSubmitted = 0L
+    private[this] var totalReadSucceeded = 0L
+    private[this] var totalReadErrored = 0L
+    private[this] var totalReadCanceled = 0L
+    private[this] var readOutstanding = 0
 
-    private var totalWriteSubmitted = 0L
-    private var totalWriteSucceeded = 0L
-    private var totalWriteErrored = 0L
-    private var totalWriteCanceled = 0L
-    private var writeOutstanding = 0
+    private[this] var totalWriteSubmitted = 0L
+    private[this] var totalWriteSucceeded = 0L
+    private[this] var totalWriteErrored = 0L
+    private[this] var totalWriteCanceled = 0L
+    private[this] var writeOutstanding = 0
 
-    private[this] val pollerMetrics: PollerMetrics = new PollerMetrics {
+    override def operationsOutstandingCount(): Int = readOutstanding + writeOutstanding
+    override def totalOperationsSubmittedCount(): Long =
+      totalReadSubmitted + totalWriteSubmitted
+    override def totalOperationsSucceededCount(): Long =
+      totalReadSucceeded + totalWriteSucceeded
+    override def totalOperationsErroredCount(): Long = totalReadErrored + totalWriteErrored
+    override def totalOperationsCanceledCount(): Long = totalReadCanceled + totalWriteCanceled
+    override def acceptOperationsOutstandingCount(): Int = 0
+    override def totalAcceptOperationsSubmittedCount(): Long = 0L
+    override def totalAcceptOperationsSucceededCount(): Long = 0L
+    override def totalAcceptOperationsErroredCount(): Long = 0L
+    override def totalAcceptOperationsCanceledCount(): Long = 0L
+    override def connectOperationsOutstandingCount(): Int = 0
+    override def totalConnectOperationsSubmittedCount(): Long = 0L
+    override def totalConnectOperationsSucceededCount(): Long = 0L
+    override def totalConnectOperationsErroredCount(): Long = 0L
+    override def totalConnectOperationsCanceledCount(): Long = 0L
+    override def readOperationsOutstandingCount(): Int = readOutstanding
+    override def totalReadOperationsSubmittedCount(): Long = totalReadSubmitted
+    override def totalReadOperationsSucceededCount(): Long = totalReadSucceeded
+    override def totalReadOperationsErroredCount(): Long = totalReadErrored
+    override def totalReadOperationsCanceledCount(): Long = totalReadCanceled
+    override def writeOperationsOutstandingCount(): Int = writeOutstanding
+    override def totalWriteOperationsSubmittedCount(): Long = totalWriteSubmitted
+    override def totalWriteOperationsSucceededCount(): Long = totalWriteSucceeded
+    override def totalWriteOperationsErroredCount(): Long = totalWriteErrored
+    override def totalWriteOperationsCanceledCount(): Long = totalWriteCanceled
 
-      override def operationsOutstandingCount(): Int = readOutstanding + writeOutstanding
+    override def toString: String = "Epoll"
 
-      override def totalOperationsSubmittedCount(): Long =
-        totalReadSubmitted + totalWriteSubmitted
-
-      override def totalOperationsSucceededCount(): Long =
-        totalReadSucceeded + totalWriteSucceeded
-
-      override def totalOperationsErroredCount(): Long = totalReadErrored + totalWriteErrored
-
-      override def totalOperationsCanceledCount(): Long = totalReadCanceled + totalWriteCanceled
-
-      override def acceptOperationsOutstandingCount(): Int = 0
-
-      override def totalAcceptOperationsSubmittedCount(): Long = 0L
-
-      override def totalAcceptOperationsSucceededCount(): Long = 0L
-
-      override def totalAcceptOperationsErroredCount(): Long = 0L
-
-      override def totalAcceptOperationsCanceledCount(): Long = 0L
-
-      override def connectOperationsOutstandingCount(): Int = 0
-
-      override def totalConnectOperationsSubmittedCount(): Long = 0L
-
-      override def totalConnectOperationsSucceededCount(): Long = 0L
-
-      override def totalConnectOperationsErroredCount(): Long = 0L
-
-      override def totalConnectOperationsCanceledCount(): Long = 0L
-
-      override def readOperationsOutstandingCount(): Int = readOutstanding
-
-      override def totalReadOperationsSubmittedCount(): Long = totalReadSubmitted
-
-      override def totalReadOperationsSucceededCount(): Long = totalReadSucceeded
-
-      override def totalReadOperationsErroredCount(): Long = totalReadErrored
-
-      override def totalReadOperationsCanceledCount(): Long = totalReadCanceled
-
-      override def writeOperationsOutstandingCount(): Int = writeOutstanding
-
-      override def totalWriteOperationsSubmittedCount(): Long = totalWriteSubmitted
-
-      override def totalWriteOperationsSucceededCount(): Long = totalWriteSucceeded
-
-      override def totalWriteOperationsErroredCount(): Long = totalWriteErrored
-
-      override def totalWriteOperationsCanceledCount(): Long = totalWriteCanceled
-
-      override def toString: String = "Epoll"
-    }
-
-    private[EpollSystem] def metrics(): PollerMetrics = pollerMetrics
+    private[EpollSystem] def metrics(): PollerMetrics = this
 
     private[this] def incrementOperationCount(reads: Boolean, writes: Boolean): Unit = {
       if (reads) {
