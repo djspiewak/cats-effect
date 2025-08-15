@@ -108,7 +108,7 @@ ThisBuild / developers := List(
 
 val PrimaryOS = "ubuntu-latest"
 val ArmOS = "ubuntu-22.04-arm"
-val Windows = "windows-latest"
+val Windows = "windows-2022"
 val MacOS = "macos-14"
 
 val Scala212 = "2.12.20"
