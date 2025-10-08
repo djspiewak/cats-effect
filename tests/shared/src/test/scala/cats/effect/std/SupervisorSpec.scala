@@ -294,5 +294,26 @@ class SupervisorSpec extends BaseSpec with DetectPlatform {
 
       tsk.parReplicateA_(if (isJVM) 1000 else 1).as(ok)
     }
+
+    def superviseCancelRace(mkSupervisor: Resource[IO, Supervisor[IO]]) = {
+      val N = 1000
+      val M = 20
+      val tsk = mkSupervisor.use { supervisor =>
+        supervisor.supervise(IO.unit).flatMap(_.cancel).replicateA_(N).parReplicateA_(M).flatMap { _ =>
+          // let's wait for cleanup to happen:
+          IO.sleep(1.second) *> {
+            val st = supervisor.asInstanceOf[Supervisor.SupervisorImpl[IO]].state
+            st.numberOfFibers.flatMap { numFibs =>
+              IO(numFibs mustEqual 0)
+            }
+          }
+        }
+      }
+      tsk.as(ok)
+    }
+
+    "supervise / cancel race cleanup" in real {
+      superviseCancelRace(constructor(false, None))
+    }
   }
 }
