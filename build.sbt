@@ -1105,7 +1105,10 @@ lazy val std = crossProject(JSPlatform, JVMPlatform, NativePlatform)
         ProblemFilters.exclude[FinalMethodProblem](
           "cats.effect.std.Dispatcher#RegState#Unstarted.toString"),
         ProblemFilters.exclude[DirectMissingMethodProblem](
-          "cats.effect.std.Dispatcher#Registration#Primary.*")
+          "cats.effect.std.Dispatcher#Registration#Primary.*"),
+        // #4500, private class:
+        ProblemFilters.exclude[ReversedMissingMethodProblem](
+          "cats.effect.std.Supervisor#State.numberOfFibers")
       )
   )
   .jsSettings(
