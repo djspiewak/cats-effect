@@ -315,5 +315,9 @@ class SupervisorSpec extends BaseSpec with DetectPlatform {
     "supervise / cancel race cleanup" in real {
       superviseCancelRace(constructor(false, None))
     }
+
+    "supervise / cancel race cleanup (with restart)" in real {
+      superviseCancelRace(constructor(false, Some(_ => true)))
+    }
   }
 }
