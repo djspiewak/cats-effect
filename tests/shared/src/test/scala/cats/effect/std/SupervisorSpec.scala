@@ -299,16 +299,19 @@ class SupervisorSpec extends BaseSpec with DetectPlatform {
       val N = 1000
       val M = 20
       val tsk = mkSupervisor.use { supervisor =>
-        supervisor.supervise(IO.unit).flatMap(_.cancel).replicateA_(N).parReplicateA_(M).flatMap { _ =>
-          // let's wait a bit (for cleanup to happen):
-          IO.sleep(0.2.second) *> {
-            val st = supervisor.asInstanceOf[Supervisor.SupervisorImpl[IO]].state
-            // the supervised fibers must've been cleaned up from the internal state:
-            st.numberOfFibers.flatMap { numFibs =>
-              IO(numFibs mustEqual 0)
+        supervisor
+          .supervise(IO.unit)
+          .flatMap(_.cancel)
+          .replicateA_(N)
+          .parReplicateA_(M)
+          .flatMap { _ =>
+            // let's wait a bit (for cleanup to happen):
+            IO.sleep(0.2.second) *> {
+              val st = supervisor.asInstanceOf[Supervisor.SupervisorImpl[IO]].state
+              // the supervised fibers must've been cleaned up from the internal state:
+              st.numberOfFibers.flatMap { numFibs => IO(numFibs mustEqual 0) }
             }
           }
-        }
       }
       tsk.as(ok)
     }

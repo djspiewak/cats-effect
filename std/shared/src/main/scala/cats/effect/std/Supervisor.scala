@@ -175,10 +175,11 @@ object Supervisor {
   }
 
   private[std] final class SupervisorImpl[F[_]](
-    checkRestart: Option[Outcome[F, Throwable, ?] => Boolean],
-    doneR: Ref[F, Boolean],
-    private[std] val state: State[F],
-  )(implicit F: Concurrent[F]) extends Supervisor[F] {
+      checkRestart: Option[Outcome[F, Throwable, ?] => Boolean],
+      doneR: Ref[F, Boolean],
+      private[std] val state: State[F]
+  )(implicit F: Concurrent[F])
+      extends Supervisor[F] {
 
     def supervise[A](fa: F[A]): F[Fiber[F, Throwable, A]] =
       F.uncancelable { _ =>
@@ -288,9 +289,7 @@ object Supervisor {
 
           case None => { (fa, fin) =>
             F.start(fa).flatMap { fib =>
-              F.start(F.uncancelable { _ =>
-                fib.join.guarantee(fin)
-              }).as(fib)
+              F.start(F.uncancelable { _ => fib.join.guarantee(fin) }).as(fib)
             }
           }
         }
@@ -330,7 +329,6 @@ object Supervisor {
         } yield fiber
       }
   }
-
 
   private[effect] def applyForConcurrent[F[_]](
       await: Boolean,
