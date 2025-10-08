@@ -288,9 +288,7 @@ object Supervisor {
           }
 
           case None => { (fa, fin) =>
-            F.start(fa).flatMap { fib =>
-              F.start(fib.join.guarantee(fin)).as(fib)
-            }
+            F.start(fa).flatMap { fib => F.start(fib.join.guarantee(fin)).as(fib) }
           }
         }
 
