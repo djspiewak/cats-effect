@@ -289,7 +289,7 @@ object Supervisor {
 
           case None => { (fa, fin) =>
             F.start(fa).flatMap { fib =>
-              F.start(F.uncancelable { _ => fib.join.guarantee(fin) }).as(fib)
+              F.start(fib.join.guarantee(fin)).as(fib)
             }
           }
         }
