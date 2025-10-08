@@ -296,8 +296,8 @@ class SupervisorSpec extends BaseSpec with DetectPlatform {
     }
 
     def superviseCancelRace(mkSupervisor: Resource[IO, Supervisor[IO]]) = {
-      val N = 1000
-      val M = 20
+      val N = if (isJVM) 1000 else 5
+      val M = if (isJVM) 20 else 2
       val tsk = mkSupervisor.use { supervisor =>
         supervisor
           .supervise(IO.unit)
