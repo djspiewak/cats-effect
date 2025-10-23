@@ -408,6 +408,7 @@ lazy val rootJVM = project
     core.jvm,
     testkit.jvm,
     tests.jvm,
+    ioAppTestsJVM,
     std.jvm,
     example.jvm,
     graalVMExample,
