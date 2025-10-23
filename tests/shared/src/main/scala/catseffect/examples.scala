@@ -83,10 +83,12 @@ package examples {
       } catch {
         case _: TimeoutException => println("sadness (timeout)")
       }
-      Thread.sleep(500L)
-      // by now the WSTP (and all its threads) must've been shut down:
       if (thread eq null) println("sadness (thread is null)")
-      else if (thread.isAlive()) println("sadness (thread is alive)")
+      else {
+        thread.join(2000)
+        // by now the WSTP (and all its threads) must've been shut down:
+        if (thread.isAlive()) println("sadness (thread is alive)")
+      }
       println("done")
     }
   }
