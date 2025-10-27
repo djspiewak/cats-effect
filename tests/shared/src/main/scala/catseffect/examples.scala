@@ -85,7 +85,7 @@ package examples {
       }
       if (thread eq null) println("sadness (thread is null)")
       else {
-        thread.join(2000)
+        thread.join(2000L)
         // by now the WSTP (and all its threads) must've been shut down:
         if (thread.isAlive()) println("sadness (thread is alive)")
       }
