@@ -3,6 +3,26 @@ id: faq
 title: FAQ
 ---
 
+## Imports
+
+Generally, it is advisable to import `cats.effect.IO` explicitly when you need it. Java 25 introduced `java.lang.IO`, an object containing some static utility functions for reading or printing to the console.
+
+<https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/IO.html>
+
+Scala includes all definitions from `java.lang` in the default namespace. This conflicting definition of `IO` can cause some confusion and may prevent your editor or IDE from recognizing the need to import `cats.effect.IO` (or reference it in a package-qualified form). If you see an error message like, `IO does not take type parameters` or `value unit is not a member of object IO`, the compiler may be referencing `java.lang.IO` instead. To fix it, you have a few options.
+
+### Import `cats.effect.IO` at the top of your file
+
+```scala
+import cats.effect.IO
+```
+
+### Use `cats.effect.IO` in a package-qualified form
+
+```scala
+cats.effect.IO.println("hello")
+```
+
 ## Scala CLI
 
 [Scala CLI](https://scala-cli.virtuslab.org/) can run both `.sc` files and `.scala` files. `.sc` files allow definitions at the top level and a main method is synthesized to run it. Unfortunately this does not work well with `IO#unsafeRunSync`. You should put your cats-effect code inside the `run` method of an `IOApp` and save it as a `.scala` file instead.
@@ -181,7 +201,7 @@ The above will return in 100 milliseconds, raising a `TimeoutException` as expec
 However, not *all* effects respect thread interruption. Notably, most things involving `java.io` file operations (e.g. `FileReader`) ignore interruption. When working with this type of effect, we must turn to other means. A simple and naive example:
 
 ```scala
-def readBytes(fis: FileInputStream) = 
+def readBytes(fis: FileInputStream) =
   IO blocking {
     var bytes = new ArrayBuffer[Int]
 
@@ -204,7 +224,7 @@ In the above snippet, swapping `blocking` for `interruptible` won't actually hel
 
 ```scala
 IO(new AtomicBoolean(false)) flatMap { flag =>
-  def readBytes(fis: FileInputStream) = 
+  def readBytes(fis: FileInputStream) =
     IO blocking {
       var bytes = new ArrayBuffer[Int]
 
