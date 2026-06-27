@@ -663,7 +663,7 @@ sealed abstract class Resource[F[_], +A] extends Serializable {
           }
         }
 
-        F.start(finalized) map { outer =>
+        F.start(finalized).map { outer =>
           val fiber = new Fiber[Resource[F, *], Throwable, A] {
             def cancel =
               Resource eval {
@@ -697,7 +697,7 @@ sealed abstract class Resource[F[_], +A] extends Serializable {
             state.modify(s => (s.copy(finalizeOnComplete = true), s.fin)).flatten
 
           (fiber, finalizeOuter)
-        }
+        }.uncancelable
       }
     }
   }

@@ -1261,6 +1261,23 @@ class ResourceSpec extends BaseSpec with ScalaCheck with Discipline {
           IO(res must beLike { case Left(e) => e must haveClass[RuntimeException] })
         }
     }
+
+    // additional #4059 test for Resource
+    "timeout finalizer (#4059)" in real {
+      val test = IO.ref(false).flatMap { ref =>
+        val program = Resource.make(ref.set(true) *> IO.sleep(10.millis)) { _ =>
+          ref.set(false)
+        }.timeout(10.millis).use_
+        program.attempt.flatMap {
+          case Left(_) =>
+            ref.get.ifM(IO.raiseError(new Exception("not released")), IO.unit)
+          case Right(_) =>
+            IO.unit // no timeout
+        }
+      }
+
+      test.replicateA_(1000).as(ok)
+    }
   }
 
   "attempt" >> {
