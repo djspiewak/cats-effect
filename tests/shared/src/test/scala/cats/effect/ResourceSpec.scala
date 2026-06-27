@@ -1242,6 +1242,25 @@ class ResourceSpec extends BaseSpec with ScalaCheck with Discipline {
 
       test.replicateA_(1000).as(ok)
     }
+
+    // issue #4059 test (1) specialized to Resource
+    "propagate successful result from a completed effect" in real {
+      Resource.catsEffectTemporalForResource[IO].sleep(50.millis).as(true).uncancelable.timeout(10.millis).use { res =>
+        IO(res must beTrue)
+      }
+    }
+
+    // issue #4059 test (2) specialized to Resource
+    "propagate error from a completed effect" in real {
+      Resource.catsEffectTemporalForResource[IO].sleep(50.millis).flatMap { _ =>
+        Resource.raiseError[IO, Unit, Throwable](new RuntimeException)
+      }.uncancelable
+        .timeout(10.millis)
+        .attempt
+        .use { res =>
+          IO(res must beLike { case Left(e) => e must haveClass[RuntimeException] })
+        }
+    }
   }
 
   "attempt" >> {
