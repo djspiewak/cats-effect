@@ -1248,7 +1248,7 @@ class ResourceSpec extends BaseSpec with ScalaCheck with Discipline {
       Resource
         .catsEffectTemporalForResource[IO]
         .sleep(50.millis)
-        .as(true)
+        .map(_ => true)
         .uncancelable
         .timeout(10.millis)
         .use { res => IO(res must beTrue) }
