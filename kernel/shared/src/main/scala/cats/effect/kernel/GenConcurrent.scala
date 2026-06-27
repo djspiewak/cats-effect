@@ -357,10 +357,11 @@ trait GenConcurrent[F[_], E] extends GenSpawn[F, E] {
             _ <- canA.join
             _ <- canB.join
           } yield ())
-      } yield back match {
-        case Left(oc) => Left((oc, fibB))
-        case Right(oc) => Right((fibA, oc))
-      }
+        result <- back match {
+          case Left(oc) => fibA.join.as(Left((oc, fibB)))
+          case Right(oc) => fibB.join.as(Right((fibA, oc)))
+        }
+      } yield result
     }
   }
 }

@@ -631,26 +631,35 @@ sealed abstract class Resource[F[_], +A] extends Serializable {
 
       F.ref[State](State()) flatMap { state =>
         val finalized: F[A] = F uncancelable { poll =>
-          poll(this.allocated) guarantee {
+          poll(this.allocated) guaranteeCase {
             // confirm that we completed and we were asked to clean up
             // note that this will run even if the inner effect short-circuited
-            state update { s =>
-              if (s.finalizeOnComplete)
-                s.copy(confirmedFinalizeOnComplete = true)
-              else
-                s
-            }
-          } flatMap {
-            // if the inner F has a zero, we lose the finalizers, but there's no avoiding that
-            case (a, rel) =>
-              val action = state modify { s =>
-                if (s.confirmedFinalizeOnComplete)
-                  (s, rel.handleError(_ => ()))
+            case Canceled() | Errored(_) =>
+              state.update { s =>
+                if (s.finalizeOnComplete)
+                  s.copy(confirmedFinalizeOnComplete = true)
                 else
-                  (s.copy(fin = rel), F.unit)
+                  s
               }
-
-              action.flatten.as(a)
+            case Succeeded(fp) =>
+              // if the inner F has a zero, we lose the finalizers, but there's no avoiding that
+              fp.flatMap {
+                case (_, rel) =>
+                  val action = state.modify { s =>
+                    if (s.finalizeOnComplete) {
+                      // finalize immediately
+                      (s.copy(confirmedFinalizeOnComplete = true), rel.voidError)
+                    } else {
+                      // save the finalizer for later
+                      (s.copy(fin = rel), F.unit)
+                    }
+                  }
+                  action.flatten
+              }
+          } map {
+            case (a, _) =>
+              // Note: we've already saved/used the finalizer, see above
+              a
           }
         }
 

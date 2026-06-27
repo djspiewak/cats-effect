@@ -1193,6 +1193,55 @@ class ResourceSpec extends BaseSpec with ScalaCheck with Discipline {
 
       run(go) == Outcome.succeeded(Some(true))
     }.pendingUntilFixed
+
+    // issue #4489 repro (1)
+    "timeout finalizer (start/release race)" in real {
+      val test: IO[Unit] = IO.ref(false).flatMap { ref =>
+        val res = Resource.make(ref.set(true))(_ => ref.set(false))
+        val timedRes = res.timeout(1.hour)
+        timedRes.use_ *> ref.get.ifM(IO.raiseError(new Exception("not released")), IO.unit)
+      }
+
+      test.replicateA_(1000).as(ok)
+    }
+
+    // issue #4489 repro (2)
+    "racePair finalizer (start/release race)" in real {
+      val test: IO[Unit] = IO.ref(false).flatMap { ref =>
+        val res = Resource.make(ref.set(true))(_ => ref.set(false))
+        val racedRes = Spawn[Resource[IO, *]].racePair(res, Resource.never)
+        racedRes.use_ *> ref.get.ifM(IO.raiseError(new Exception("not released")), IO.unit)
+      }
+
+      test.replicateA_(1000).as(ok)
+    }
+
+    // issue #4489 repro (2) variant (never actually failed)
+    "racePair finalizer (start/cancel race)" in real {
+      val test: IO[Unit] = IO.ref(false).flatMap { ref =>
+        val res = Resource.make(ref.set(true))(_ => ref.set(false))
+        val racedRes = Spawn[Resource[IO, *]].racePair(res, Resource.unit).flatMap {
+          case Left((_, fib)) => fib.cancel
+          case Right((fib, _)) => fib.cancel
+        }
+        racedRes.use_ *> ref.get.ifM(IO.raiseError(new Exception("not released")), IO.unit)
+      }
+
+      test.parReplicateA_(1000).as(ok)
+    }
+
+    // issue #4489 repro (3)
+    "racePair finalizer variant (start/release race)" in real {
+      val test: IO[Unit] = IO.ref(false).flatMap { ref =>
+        IO.deferred[Unit].flatMap { d =>
+          val res = Resource.make(ref.set(true))(_ => ref.set(false) <* d.complete(()))
+          val racedRes = Spawn[Resource[IO, *]].racePair(res, Resource.never)
+          racedRes.use_ *> ref.get.ifM(d.get, IO.unit) // hangs if finalizer doesn't run
+        }
+      }
+
+      test.replicateA_(1000).as(ok)
+    }
   }
 
   "attempt" >> {
