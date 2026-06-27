@@ -1283,7 +1283,7 @@ class ResourceSpec extends BaseSpec with ScalaCheck with Discipline {
         }
       }
 
-      test.replicateA_(500).as(ok)
+      test.parReplicateA_(1000).as(ok)
     }
   }
 
