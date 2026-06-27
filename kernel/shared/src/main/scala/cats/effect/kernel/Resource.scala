@@ -663,41 +663,43 @@ sealed abstract class Resource[F[_], +A] extends Serializable {
           }
         }
 
-        F.start(finalized).map { outer =>
-          val fiber = new Fiber[Resource[F, *], Throwable, A] {
-            def cancel =
-              Resource eval {
-                F uncancelable { poll =>
-                  // technically cancel is uncancelable, but separation of concerns and what not
-                  poll(outer.cancel) *> state.update(_.copy(finalizeOnComplete = true))
+        F.start(finalized)
+          .map { outer =>
+            val fiber = new Fiber[Resource[F, *], Throwable, A] {
+              def cancel =
+                Resource eval {
+                  F uncancelable { poll =>
+                    // technically cancel is uncancelable, but separation of concerns and what not
+                    poll(outer.cancel) *> state.update(_.copy(finalizeOnComplete = true))
+                  }
                 }
-              }
 
-            def join =
-              Resource eval {
-                outer.join.flatMap[Outcome[Resource[F, *], Throwable, A]] {
-                  case Canceled() =>
-                    Outcome.canceled[Resource[F, *], Throwable, A].pure[F]
+              def join =
+                Resource eval {
+                  outer.join.flatMap[Outcome[Resource[F, *], Throwable, A]] {
+                    case Canceled() =>
+                      Outcome.canceled[Resource[F, *], Throwable, A].pure[F]
 
-                  case Errored(e) =>
-                    Outcome.errored[Resource[F, *], Throwable, A](e).pure[F]
+                    case Errored(e) =>
+                      Outcome.errored[Resource[F, *], Throwable, A](e).pure[F]
 
-                  case Succeeded(fp) =>
-                    state.get map { s =>
-                      if (s.confirmedFinalizeOnComplete)
-                        Outcome.canceled[Resource[F, *], Throwable, A]
-                      else
-                        Outcome.succeeded(Resource.eval(fp))
-                    }
+                    case Succeeded(fp) =>
+                      state.get map { s =>
+                        if (s.confirmedFinalizeOnComplete)
+                          Outcome.canceled[Resource[F, *], Throwable, A]
+                        else
+                          Outcome.succeeded(Resource.eval(fp))
+                      }
+                  }
                 }
-              }
+            }
+
+            val finalizeOuter =
+              state.modify(s => (s.copy(finalizeOnComplete = true), s.fin)).flatten
+
+            (fiber, finalizeOuter)
           }
-
-          val finalizeOuter =
-            state.modify(s => (s.copy(finalizeOnComplete = true), s.fin)).flatten
-
-          (fiber, finalizeOuter)
-        }.uncancelable
+          .uncancelable
       }
     }
   }

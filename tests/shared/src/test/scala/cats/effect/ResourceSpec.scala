@@ -1245,16 +1245,22 @@ class ResourceSpec extends BaseSpec with ScalaCheck with Discipline {
 
     // issue #4059 test (1) specialized to Resource
     "propagate successful result from a completed effect" in real {
-      Resource.catsEffectTemporalForResource[IO].sleep(50.millis).as(true).uncancelable.timeout(10.millis).use { res =>
-        IO(res must beTrue)
-      }
+      Resource
+        .catsEffectTemporalForResource[IO]
+        .sleep(50.millis)
+        .as(true)
+        .uncancelable
+        .timeout(10.millis)
+        .use { res => IO(res must beTrue) }
     }
 
     // issue #4059 test (2) specialized to Resource
     "propagate error from a completed effect" in real {
-      Resource.catsEffectTemporalForResource[IO].sleep(50.millis).flatMap { _ =>
-        Resource.raiseError[IO, Unit, Throwable](new RuntimeException)
-      }.uncancelable
+      Resource
+        .catsEffectTemporalForResource[IO]
+        .sleep(50.millis)
+        .flatMap { _ => Resource.raiseError[IO, Unit, Throwable](new RuntimeException) }
+        .uncancelable
         .timeout(10.millis)
         .attempt
         .use { res =>
@@ -1265,9 +1271,10 @@ class ResourceSpec extends BaseSpec with ScalaCheck with Discipline {
     // additional #4059 test for Resource
     "timeout finalizer (#4059)" in real {
       val test = IO.ref(false).flatMap { ref =>
-        val program = Resource.make(ref.set(true) *> IO.sleep(10.millis)) { _ =>
-          ref.set(false)
-        }.timeout(10.millis).use_
+        val program = Resource
+          .make(ref.set(true) *> IO.sleep(10.millis)) { _ => ref.set(false) }
+          .timeout(10.millis)
+          .use_
         program.attempt.flatMap {
           case Left(_) =>
             ref.get.ifM(IO.raiseError(new Exception("not released")), IO.unit)
