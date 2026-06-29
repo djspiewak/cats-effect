@@ -1275,11 +1275,8 @@ class ResourceSpec extends BaseSpec with ScalaCheck with Discipline {
           .make(ref.set(true) *> IO.sleep(10.millis)) { _ => ref.set(false) }
           .timeout(10.millis)
           .use_
-        program.attempt.flatMap {
-          case Left(_) =>
-            ref.get.ifM(IO.raiseError(new Exception("not released")), IO.unit)
-          case Right(_) =>
-            IO.unit // no timeout
+        program.attempt.flatMap { _ =>
+          ref.get.ifM(IO.raiseError(new Exception("not released")), IO.unit)
         }
       }
 
