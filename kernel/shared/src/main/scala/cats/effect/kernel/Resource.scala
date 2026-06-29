@@ -621,15 +621,11 @@ sealed abstract class Resource[F[_], +A] extends Serializable {
   def start(
       implicit
       F: Concurrent[F]): Resource[F, Fiber[Resource[F, *], Throwable, A @uncheckedVariance]] = {
-    final case class State(
-        fin: F[Unit] = F.unit,
-        finalizeOnComplete: Boolean = false,
-        confirmedFinalizeOnComplete: Boolean = false)
 
     Resource {
       import Outcome._
 
-      F.ref[State](State()) flatMap { state =>
+      F.ref[Resource.FiberState[F]](Resource.FiberState(F.unit)) flatMap { state =>
         val finalized: F[A] = F uncancelable { poll =>
           poll(this.allocated) guaranteeCase {
             // confirm that we completed and we were asked to clean up
@@ -806,6 +802,11 @@ sealed abstract class Resource[F[_], +A] extends Serializable {
 }
 
 object Resource extends ResourceFOInstances0 with ResourceHOInstances0 with ResourcePlatform {
+
+  private final case class FiberState[F[_]](
+      fin: F[Unit],
+      finalizeOnComplete: Boolean = false,
+      confirmedFinalizeOnComplete: Boolean = false)
 
   /**
    * Creates a resource from an allocating effect.
